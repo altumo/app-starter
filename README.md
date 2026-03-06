@@ -1,161 +1,111 @@
 # App Starter
 
-A toolkit of Claude Code skills that bootstrap production-ready projects for different stacks. Each starter is a self-contained skill that scaffolds a complete project with best-practices defaults, turn-key local development, and production-ready configuration.
+Production-ready project starters for Claude Code. Each starter is a [skill](https://code.claude.com/docs/en/skills) that scaffolds a complete full-stack app — auth, database, Docker, and all — with a single prompt.
 
-## Starters
+## Available Starters
 
-| Starter | Stack | Status |
-|---------|-------|--------|
-| [`starter-django`](.claude/skills/starter-django/) | Django + React + Vite + PostgreSQL + Clerk + Docker | Available |
+| Starter | Stack | What You Get |
+|---------|-------|-------------|
+| [**starter-django**](skills/starter-django/) | Django + React + Vite + PostgreSQL + Clerk | Python backend, React SPA frontend, two containers |
+| [**starter-nextjs**](skills/starter-nextjs/) | Next.js + Drizzle ORM + PostgreSQL + Clerk | Single Next.js app with API routes, one container |
 
-## How It Works
+Both starters share the same foundation:
+- **Auth** via [Clerk](https://clerk.com) (sign-in, sign-up, user management)
+- **PostgreSQL 17** with migration safety (`pg_advisory_lock`)
+- **Docker Compose** for one-command local development
+- **Tailwind CSS v4** with TypeScript
+- **Production Dockerfiles** (multi-stage, optimized)
+- **Health check endpoints** with database connectivity verification
 
-Each starter is a [Claude Code skill](https://docs.anthropic.com/en/docs/claude-code) that lives in `.claude/skills/`. When invoked, Claude reads the skill's templates and generates a complete project scaffold in your working directory.
-
-## Getting Started (starter-django)
-
-### Prerequisites
-
-1. **Docker Desktop** — install from [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/) and make sure it's running
-2. **Claude Code** — `npm install -g @anthropic-ai/claude-code`
-3. **Clerk account** — sign up at [dashboard.clerk.com](https://dashboard.clerk.com) (free tier works)
-
-### Step 1: Create your project directory
+## Install
 
 ```bash
-mkdir ~/projects/myapp && cd ~/projects/myapp
+npx skills add altumo/app-starter -s starter-django
 ```
 
-### Step 2: Install the skill
-
-Copy the skill into your project's Claude Code skills directory:
+or
 
 ```bash
-mkdir -p .claude/skills
-cp -r /path/to/app-starter/.claude/skills/starter-django .claude/skills/
+npx skills add altumo/app-starter -s starter-nextjs
 ```
 
-Or, if this repo is your starting point, just work inside it directly.
+This installs the skill into your project's `.claude/skills/` directory.
 
-### Step 3: Bootstrap with Claude Code
+## Usage
+
+After installing a skill, open Claude Code and say:
+
+```
+bootstrap a new project
+```
+
+Claude reads the skill, creates all project files (~25-45 files), and prints setup instructions.
+
+## Quick Start (Full Walkthrough)
+
+### 1. Create a project directory and install the skill
+
+```bash
+mkdir myapp && cd myapp
+npx skills add altumo/app-starter -s starter-nextjs
+```
+
+### 2. Bootstrap with Claude Code
 
 ```bash
 claude
 ```
 
-Then tell Claude:
+Tell Claude:
 
 ```
 bootstrap a new project called myapp
 ```
 
-Claude will read the skill, create ~45 files (backend, frontend, Docker, config), generate a secret key, and print next steps.
+### 3. Get your Clerk keys
 
-### Step 4: Get your Clerk keys
+1. Go to [dashboard.clerk.com](https://dashboard.clerk.com) and create an app
+2. Copy your **Publishable Key** and **Secret Key**
+3. Paste them into the generated `.env` file
 
-1. Go to [dashboard.clerk.com](https://dashboard.clerk.com) → create an application
-2. Go to **API Keys** and copy:
-   - **Publishable key** (`pk_test_...`)
-   - **Secret key** (`sk_test_...`)
-3. Go to **API Keys → Advanced** and note your **Frontend API URL** — your JWKS URL is:
-   ```
-   https://<your-frontend-api>.clerk.accounts.dev/.well-known/jwks.json
-   ```
-
-### Step 5: Configure environment
-
-Edit `.env` (root):
-```bash
-CLERK_JWKS_URL=https://your-instance.clerk.accounts.dev/.well-known/jwks.json
-```
-
-Edit `frontend/.env.local`:
-```bash
-VITE_CLERK_PUBLISHABLE_KEY=pk_test_your_key
-```
-
-### Step 6: Start development
+### 4. Start development
 
 ```bash
 ./start-local-dev.sh
 ```
 
-First run takes a few minutes (pulling Docker images, installing dependencies). After that:
+Your app is running. Open http://localhost:3000.
 
-| Service | URL |
-|---------|-----|
-| Frontend | http://localhost:3000 |
-| Backend API | http://localhost:8000/api/ |
-| Health check | http://localhost:8000/api/health/ |
-| Django Admin | http://localhost:8000/admin/ |
+## Choosing a Starter
 
-### Step 7: Verify it works
+| | starter-django | starter-nextjs |
+|---|---|---|
+| **Best for** | Teams that want a Python backend with a separate React frontend | Teams that want a single TypeScript codebase |
+| **Backend** | Django 5.2 + DRF + Gunicorn | Next.js 16 API Routes |
+| **Frontend** | React 19 (Vite SPA) | Next.js 16 App Router (SSR) |
+| **ORM** | Django ORM | Drizzle ORM |
+| **Auth integration** | PyJWT + JWKS (manual JWT verification) | @clerk/nextjs v7 (native middleware) |
+| **Containers** | 3 services (PostgreSQL + Django + Vite) | 2 services (PostgreSQL + Next.js) |
+| **Production proxy** | nginx (serves static build + proxies API) | Next.js standalone (serves everything) |
+| **Languages** | Python + TypeScript | TypeScript only |
 
-1. Open http://localhost:3000 — you should see a landing page with Sign In / Sign Up buttons
-2. Sign up via Clerk
-3. You'll land on the dashboard which shows the backend health status
-4. Check http://localhost:8000/api/health/ — should return `{"status": "healthy"}`
+## Also Included
 
-## Common Tasks
+### team-executor
+
+An orchestration skill that assembles expert AI agents to plan and execute complex tasks. Not a project starter — it's a workflow tool.
 
 ```bash
-# Run Django management commands
-docker compose exec backend python manage.py createsuperuser
-docker compose exec backend python manage.py makemigrations
-docker compose exec backend python manage.py migrate
-
-# Install a new npm package
-docker compose exec frontend npm install <package>
-
-# Install a new Python package
-# Add to backend/requirements.txt, then:
-docker compose up --build backend
-
-# View logs
-docker compose logs -f backend
-docker compose logs -f frontend
-
-# Stop everything
-docker compose down
-
-# Stop and wipe database
-docker compose down -v
+npx skills add altumo/app-starter -s team-executor
 ```
 
-## Troubleshooting
+### Reference Skills
 
-**"Database not available"** — Docker Desktop might still be starting. Wait a few seconds and retry.
+These third-party skills are installed in this repo for development. Install them separately if you want them:
 
-**Clerk sign-in shows an error** — Double-check that `VITE_CLERK_PUBLISHABLE_KEY` in `frontend/.env.local` matches your Clerk dashboard. Restart the frontend container after changing env vars: `docker compose restart frontend`.
-
-**Backend returns 401 on authenticated requests** — Verify `CLERK_JWKS_URL` in `.env` points to your Clerk instance's JWKS endpoint. Restart the backend: `docker compose restart backend`.
-
-**Port already in use** — Edit `.env` to change ports:
-```bash
-BACKEND_PORT=8001
-FRONTEND_PORT=3001
-DB_PORT=5433
-```
-
-## Bundled Reference Skills
-
-These domain-expert skills enhance Claude's capabilities when working on bootstrapped projects:
-
-- **django-expert** — Django models, views, DRF, migrations, security, production deployment
-- **docker-expert** — Multi-stage builds, Compose orchestration, container security
-- **vercel-react-best-practices** — React performance optimization
-- **supabase-postgres-best-practices** — PostgreSQL performance, indexing, query optimization
-
-## Contributing a Starter
-
-Each starter follows the Claude Code skill format:
-
-```
-.claude/skills/{starter-name}/
-├── SKILL.md              # Instructions Claude follows to scaffold the project
-├── assets/templates/     # All project template files
-├── references/           # Architecture decisions, design docs
-└── scripts/              # Helper scripts (optional)
-```
-
-The `SKILL.md` frontmatter must include `name` and `description` fields. See the [starter-django skill](.claude/skills/starter-django/SKILL.md) as a reference implementation.
+| Skill | Source | Install |
+|-------|--------|---------|
+| django-expert | vintasoftware/django-ai-plugins | `npx skills add vintasoftware/django-ai-plugins -s django-expert` |
+| docker-expert | sickn33/antigravity-awesome-skills | `npx skills add sickn33/antigravity-awesome-skills -s docker-expert` |
+| vercel-react-best-practices | vercel-labs/agent-skills | `npx skills add vercel-labs/agent-skills -s vercel-react-best-practices` |
+| supabase-postgres-best-practices | supabase/agent-skills | `npx skills add supabase/agent-skills -s supabase-postgres-best-practices` |
