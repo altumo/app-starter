@@ -6,7 +6,7 @@ A toolkit of Claude Code skills that bootstrap production-ready projects for dif
 
 | Starter | Stack | Status |
 |---------|-------|--------|
-| [`starter-django`](.claude/skills/starter-django/) | Django + Next.js + PostgreSQL + Clerk + Docker | Available |
+| [`starter-django`](.claude/skills/starter-django/) | Django + React + Vite + PostgreSQL + Clerk + Docker | Available |
 
 ## How It Works
 
@@ -71,8 +71,7 @@ CLERK_JWKS_URL=https://your-instance.clerk.accounts.dev/.well-known/jwks.json
 
 Edit `frontend/.env.local`:
 ```bash
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_your_key
-CLERK_SECRET_KEY=sk_test_your_key
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_your_key
 ```
 
 ### Step 6: Start development
@@ -127,7 +126,7 @@ docker compose down -v
 
 **"Database not available"** — Docker Desktop might still be starting. Wait a few seconds and retry.
 
-**Clerk sign-in shows an error** — Double-check that `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` in `frontend/.env.local` matches your Clerk dashboard. Restart the frontend container after changing env vars: `docker compose restart frontend`.
+**Clerk sign-in shows an error** — Double-check that `VITE_CLERK_PUBLISHABLE_KEY` in `frontend/.env.local` matches your Clerk dashboard. Restart the frontend container after changing env vars: `docker compose restart frontend`.
 
 **Backend returns 401 on authenticated requests** — Verify `CLERK_JWKS_URL` in `.env` points to your Clerk instance's JWKS endpoint. Restart the backend: `docker compose restart backend`.
 
@@ -143,9 +142,8 @@ DB_PORT=5433
 These domain-expert skills enhance Claude's capabilities when working on bootstrapped projects:
 
 - **django-expert** — Django models, views, DRF, migrations, security, production deployment
-- **clerk-nextjs-patterns** — Clerk authentication patterns for Next.js App Router
 - **docker-expert** — Multi-stage builds, Compose orchestration, container security
-- **vercel-react-best-practices** — React/Next.js performance optimization from Vercel Engineering
+- **vercel-react-best-practices** — React performance optimization
 - **supabase-postgres-best-practices** — PostgreSQL performance, indexing, query optimization
 
 ## Contributing a Starter

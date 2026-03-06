@@ -34,10 +34,6 @@ services:
     build:
       context: ./frontend
     restart: always
-    env_file:
-      - ./frontend/.env.local
-    environment:
-      DJANGO_API_URL: http://backend:8000
     depends_on:
       - backend
     ports:

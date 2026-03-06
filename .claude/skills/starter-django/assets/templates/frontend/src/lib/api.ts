@@ -1,8 +1,10 @@
 /**
  * API client for communicating with the Django backend.
  *
- * During development, Next.js rewrites proxy /api/* requests to Django,
+ * During development, Vite's dev server proxies /api/* requests to Django,
  * so we don't need to specify the full backend URL.
+ *
+ * In production, nginx proxies /api/* to the Django service.
  *
  * For authenticated requests, use `authFetch` which automatically
  * attaches the Clerk Bearer token.

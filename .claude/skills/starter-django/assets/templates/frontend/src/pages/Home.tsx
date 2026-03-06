@@ -1,13 +1,13 @@
-import Link from "next/link";
+import { Link } from "react-router";
 import {
   SignInButton,
   SignUpButton,
   SignedIn,
   SignedOut,
   UserButton,
-} from "@clerk/nextjs";
+} from "@clerk/clerk-react";
 
-export default function HomePage() {
+export default function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-8">
       <h1 className="text-4xl font-bold mb-8">__PROJECT_NAME__</h1>
@@ -31,7 +31,7 @@ export default function HomePage() {
         <div className="flex flex-col items-center gap-4">
           <UserButton />
           <Link
-            href="/dashboard"
+            to="/dashboard"
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
           >
             Go to Dashboard

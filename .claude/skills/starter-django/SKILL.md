@@ -1,6 +1,6 @@
 ---
 name: starter-django
-description: Bootstrap a production-ready full-stack project with Django + Next.js + PostgreSQL + Clerk + Docker. Use when starting a new project or when the user says "bootstrap", "scaffold", "starter", "new project", or "init project". Creates turn-key local development with a single command.
+description: Bootstrap a production-ready full-stack project with Django + React + Vite + PostgreSQL + Clerk + Docker. Use when starting a new project or when the user says "bootstrap", "scaffold", "starter", "new project", or "init project". Creates turn-key local development with a single command.
 ---
 
 # Starter Django: Full-Stack Project Bootstrap
@@ -9,15 +9,15 @@ description: Bootstrap a production-ready full-stack project with Django + Next.
 
 This skill creates a complete, production-ready full-stack project with:
 - **Backend**: Django 5.2 LTS + Django REST Framework + Gunicorn
-- **Frontend**: Next.js (App Router) + TypeScript + Tailwind CSS
-- **Auth**: Clerk (JWT verification in Django, Clerk provider in Next.js)
+- **Frontend**: React (Vite) + TypeScript + Tailwind CSS
+- **Auth**: Clerk (JWT verification in Django, Clerk provider in React)
 - **Database**: PostgreSQL 17 with safe migration handling
 - **Containers**: Docker Compose for local dev, production Dockerfiles
 
 ## When to Use
 
 - "Bootstrap a new project"
-- "Create a new Django + Next.js project"
+- "Create a new Django + React project"
 - "Scaffold a full-stack app"
 - "Set up a new project with Clerk"
 - "Init project" or "starter"
@@ -41,7 +41,7 @@ Ask the user for (or use defaults):
 - **Project name** (default: basename of current directory, e.g. `myproject`)
 - **Django app name** (default: `api`)
 
-Use the project name in Django settings module and Next.js package name. Replace `__PROJECT_NAME__` in all templates.
+Use the project name in Django settings module. Replace `__PROJECT_NAME__` in all templates.
 
 ### Step 2: Initialize Git Repository
 
@@ -102,40 +102,36 @@ backend/
 ### Step 4: Create the Frontend
 
 1. Read and write all files from `assets/templates/frontend/` to `./frontend/` in the project root
-2. Create the Next.js directory structure. **Important**: The `[[...sign-in]]` and `[[...sign-up]]` are literal directory names (Next.js catch-all route segments):
+2. Create the Vite SPA directory structure:
 
 ```
 frontend/
 ├── src/
-│   ├── app/
-│   │   ├── layout.tsx                        <- from assets/templates/frontend/src/app/layout.tsx
-│   │   ├── page.tsx                          <- from assets/templates/frontend/src/app/page.tsx
-│   │   ├── globals.css                       <- from assets/templates/frontend/src/app/globals.css
-│   │   ├── (auth)/
-│   │   │   ├── sign-in/
-│   │   │   │   └── [[...sign-in]]/
-│   │   │   │       └── page.tsx              <- from assets/templates/frontend/src/app/(auth)/sign-in/page.tsx
-│   │   │   └── sign-up/
-│   │   │       └── [[...sign-up]]/
-│   │   │           └── page.tsx              <- from assets/templates/frontend/src/app/(auth)/sign-up/page.tsx
-│   │   └── (dashboard)/
-│   │       ├── layout.tsx                    <- from assets/templates/frontend/src/app/(dashboard)/layout.tsx
-│   │       └── dashboard/
-│   │           └── page.tsx                  <- from assets/templates/frontend/src/app/(dashboard)/dashboard/page.tsx
-│   ├── lib/
-│   │   └── api.ts                            <- from assets/templates/frontend/src/lib/api.ts
-│   └── middleware.ts                         <- from assets/templates/frontend/src/middleware.ts
-├── public/                                   <- create empty directory
-├── .env.local.example                        <- from assets/templates/frontend/.env.local.example
-├── .gitignore                                <- from assets/templates/frontend/.gitignore
-├── Dockerfile                                <- from assets/templates/frontend/Dockerfile
-├── next.config.ts                            <- from assets/templates/frontend/next.config.ts
-├── package.json                              <- from assets/templates/frontend/package.json
-├── tsconfig.json                             <- from assets/templates/frontend/tsconfig.json
-└── postcss.config.mjs                        <- from assets/templates/frontend/postcss.config.mjs
+│   ├── main.tsx
+│   ├── App.tsx
+│   ├── index.css
+│   ├── pages/
+│   │   ├── Home.tsx
+│   │   ├── SignIn.tsx
+│   │   ├── SignUp.tsx
+│   │   └── Dashboard.tsx
+│   ├── layouts/
+│   │   └── DashboardLayout.tsx
+│   ├── components/
+│   │   └── ProtectedRoute.tsx
+│   └── lib/
+│       └── api.ts
+├── index.html
+├── vite.config.ts
+├── tsconfig.json
+├── package.json
+├── nginx.conf
+├── Dockerfile
+├── .env.local.example
+└── .gitignore
 ```
 
-3. The frontend `package.json` already includes `@clerk/nextjs` as a dependency
+3. The frontend `package.json` already includes `@clerk/clerk-react` as a dependency
 4. Replace `__PROJECT_NAME__` with the actual project name in all files
 
 ### Step 5: Create Root Configuration Files
@@ -169,7 +165,7 @@ Project bootstrapped successfully!
 Next steps:
 1. Get your Clerk API keys from https://dashboard.clerk.com
 2. Update .env with your CLERK_SECRET_KEY and CLERK_JWKS_URL
-3. Update frontend/.env.local with your NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY
+3. Update frontend/.env.local with your VITE_CLERK_PUBLISHABLE_KEY
 4. Run: ./start-local-dev.sh
 
 The app will be available at:
@@ -187,5 +183,5 @@ Read `references/architecture.md` for detailed architecture decisions if needed.
 - **Always create the custom User model first** - Django does not support changing AUTH_USER_MODEL after the first migration
 - **Never hardcode secrets** - all sensitive values come from environment variables
 - **The entrypoint.sh uses pg_advisory_lock** to prevent migration race conditions when multiple containers start simultaneously
-- **Next.js rewrites proxy /api/* to Django** during development, eliminating CORS issues
-- **Production uses django-cors-headers** for direct frontend-to-backend communication
+- **Vite dev server proxies /api/* to Django** during development, eliminating CORS issues
+- **Production uses nginx to proxy /api/* to Django** and serve the static frontend bundle

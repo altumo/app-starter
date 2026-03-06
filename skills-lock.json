@@ -1,11 +1,6 @@
 {
   "version": 1,
   "skills": {
-    "clerk-nextjs-patterns": {
-      "source": "clerk/skills",
-      "sourceType": "github",
-      "computedHash": "c55aeca9c8ca0602af4a2bdc0370e3c349e53752177cb1187edf213f51d34636"
-    },
     "django-expert": {
       "source": "vintasoftware/django-ai-plugins",
       "sourceType": "github",

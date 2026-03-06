@@ -1,55 +1,54 @@
-# Execution Plan: Django + Next.js + Postgres + Clerk + Docker Bootstrap Skill
+# Execution Plan: Replace Next.js with React (Vite)
 
 ## Overview
 
-Build a Claude Code skill (`starter-django`) that bootstraps a production-ready full-stack project. When invoked, the skill instructs Claude to generate a complete project scaffold with Django backend API, Next.js frontend, PostgreSQL database, Clerk authentication, and Docker containerization - all wired together with turn-key local development.
+Remove all Next.js dependencies from the starter-django skill and replace with a plain React SPA using Vite. The frontend becomes static files served by nginx in production, with Vite's dev proxy replacing Next.js rewrites. Django remains the sole backend.
 
 ## Goals
 
-1. Create a Claude Code skill with SKILL.md + bundled scripts/templates
-2. Git repo initialization with proper .gitignore
-3. Django backend with custom User model, DRF, Clerk JWT auth, health checks
-4. Next.js frontend with App Router, TypeScript, Clerk, API proxy to Django
-5. Docker Compose for local dev (Postgres + Django + Next.js, single command)
-6. Production Dockerfiles with safe migration execution
-7. .env-based configuration with sensible defaults
-8. start-local-dev.sh for turn-key setup
+1. Replace all Next.js frontend templates with Vite + React Router + @clerk/clerk-react equivalents
+2. Update Docker configuration for static-file serving (nginx) instead of Node.js server
+3. Update all documentation and skill instructions to reflect React/Vite stack
+4. Remove the `clerk-nextjs-patterns` agent skill (Next.js-specific)
+5. Update project memory to reflect new stack
 
 ## Architecture
 
 ```
 project-root/
-├── backend/                    # Django project
-│   ├── config/                 # Django settings module
-│   │   ├── settings/
-│   │   │   ├── base.py
-│   │   │   ├── development.py
-│   │   │   └── production.py
-│   │   ├── urls.py
-│   │   ├── wsgi.py
-│   │   └── asgi.py
+├── backend/                    # Django project (UNCHANGED)
+│   ├── config/settings/
 │   ├── apps/
-│   │   ├── accounts/           # Custom User model + Clerk auth
-│   │   └── core/               # Health check, common utilities
-│   ├── manage.py
-│   ├── requirements.txt
 │   ├── Dockerfile
-│   ├── entrypoint.sh
-│   └── gunicorn.conf.py
-├── frontend/                   # Next.js project
+│   └── entrypoint.sh
+├── frontend/                   # React SPA (Vite)
 │   ├── src/
-│   │   ├── app/
+│   │   ├── main.tsx            # Entry point
+│   │   ├── App.tsx             # ClerkProvider + Router
+│   │   ├── index.css           # Tailwind
+│   │   ├── pages/
+│   │   │   ├── Home.tsx
+│   │   │   ├── SignIn.tsx
+│   │   │   ├── SignUp.tsx
+│   │   │   └── Dashboard.tsx
+│   │   ├── layouts/
+│   │   │   └── DashboardLayout.tsx
 │   │   ├── components/
-│   │   ├── lib/
-│   │   └── middleware.ts
-│   ├── Dockerfile
-│   ├── next.config.ts
+│   │   │   └── ProtectedRoute.tsx
+│   │   └── lib/
+│   │       └── api.ts
+│   ├── index.html              # Vite entry
+│   ├── vite.config.ts          # Dev proxy + build config
+│   ├── tsconfig.json
+│   ├── postcss.config.mjs
 │   ├── package.json
-│   └── tsconfig.json
-├── docker-compose.yml          # Local development
-├── docker-compose.prod.yml     # Production reference
-├── .env.example                # Documented env vars
-├── .env                        # Local defaults (git-ignored)
+│   ├── nginx.conf              # Production serving
+│   ├── Dockerfile
+│   ├── .env.local.example
+│   └── .gitignore
+├── docker-compose.yml
+├── docker-compose.prod.yml
+├── .env.example
 ├── .gitignore
 ├── start-local-dev.sh
 └── README.md
@@ -57,285 +56,130 @@ project-root/
 
 ### Key Decisions
 
-1. **Django settings**: Split settings (base/development/production) - cleaner than single file with many conditionals
-2. **Clerk auth in Django**: Use `PyJWT` + JWKS verification (custom DRF auth class) - avoids dependency on `clerk-django` which is young and may change; gives full control
-3. **API proxy**: Next.js `rewrites` in `next.config.ts` to proxy `/api/*` to Django - eliminates CORS issues in dev
-4. **Django CORS**: `django-cors-headers` configured for production use when frontend calls Django directly
-5. **Migrations**: Entrypoint script with `pg_isready` wait + advisory lock for safe concurrent migration
-6. **Custom User model**: Created from day one (cannot change later)
-7. **Static files**: WhiteNoise in Django for simplicity
-8. **Database**: `dj-database-url` for DATABASE_URL parsing
-
-### Version Pinning
-
-| Component | Version | Rationale |
-|-----------|---------|-----------|
-| Python | 3.12 | Stable, broad compatibility |
-| Django | 5.2.x | LTS until April 2028 |
-| PostgreSQL | 17 | Latest stable |
-| Node.js | 22 | LTS |
-| Next.js | latest (16.x) | Via create-next-app |
-| @clerk/nextjs | latest (7.x) | Via npm install |
-| TypeScript | 5.x | Stable |
+1. **Vite dev proxy** replaces Next.js rewrites — same DX, simpler stack
+2. **React Router v7** for client-side routing — explicit routes, protected route wrapper
+3. **@clerk/clerk-react** instead of `@clerk/nextjs` — client-only, no server components
+4. **nginx** serves static files in production and proxies `/api` to Django backend
+5. **No SSR** — pure client-side React SPA
 
 ## Execution Steps
 
-### Phase 1: Skill Structure
+### Phase 1: Delete Next.js Frontend Templates
 
-#### Step 1.1: Create Skill Directory and SKILL.md
-**Objective**: Create the skill file structure
-**Details**:
-- Create `.claude/skills/starter-django/SKILL.md` with frontmatter
-- The SKILL.md contains full instructions for Claude to follow
-- Create `scripts/` directory for helper templates
+#### Step 1.1: Remove Next.js-specific files
+**Objective**: Delete files that have no React/Vite equivalent
+**Files to delete**:
+- `assets/templates/frontend/next.config.ts`
+- `assets/templates/frontend/src/middleware.ts`
+- `assets/templates/frontend/src/app/` (entire directory)
 
-**Outputs**: SKILL.md file, scripts directory
+### Phase 2: Create New React Frontend Templates
 
-#### Step 1.2: Create Template Scripts
-**Objective**: Bundle reusable scripts and config templates
-**Details**:
-- `scripts/setup-backend.sh` - Django project creation + configuration
-- `scripts/setup-frontend.sh` - Next.js project creation + Clerk setup
-- `scripts/docker-compose.yml.template` - Docker compose template
-- `scripts/entrypoint.sh.template` - Django Docker entrypoint
-- `scripts/start-local-dev.sh.template` - Local dev startup script
+#### Step 2.1: Create vite.config.ts
+**Objective**: Vite config with dev proxy to Django
+**File**: `assets/templates/frontend/vite.config.ts`
 
-**Outputs**: Template files in scripts/
+#### Step 2.2: Create index.html
+**Objective**: Vite entry point HTML
+**File**: `assets/templates/frontend/index.html`
 
-### Phase 2: Django Backend Templates
+#### Step 2.3: Create main.tsx
+**Objective**: React entry point
+**File**: `assets/templates/frontend/src/main.tsx`
 
-#### Step 2.1: Django Settings
-**Objective**: Create production-ready Django settings
-**Details**:
-- `base.py`: INSTALLED_APPS, MIDDLEWARE, AUTH_USER_MODEL, DRF config, CORS config
-- `development.py`: DEBUG=True, CORS allow all, console email
-- `production.py`: Security headers, HTTPS, proper ALLOWED_HOSTS
+#### Step 2.4: Create App.tsx
+**Objective**: Root component with ClerkProvider + BrowserRouter + Routes
+**File**: `assets/templates/frontend/src/App.tsx`
 
-#### Step 2.2: Custom User Model
-**Objective**: Custom User model that extends AbstractUser
-**Details**:
-- `apps/accounts/models.py` with CustomUser
-- `apps/accounts/admin.py` with UserAdmin
-- `apps/accounts/managers.py` with CustomUserManager
+#### Step 2.5: Create index.css
+**Objective**: Tailwind import (moved from globals.css)
+**File**: `assets/templates/frontend/src/index.css`
 
-#### Step 2.3: Clerk Authentication
-**Objective**: DRF authentication class for Clerk JWT verification
-**Details**:
-- `apps/accounts/authentication.py` with ClerkJWTAuthentication
-- Uses PyJWT + JWKS for verification
-- Validates `exp`, `iss`, `azp` claims
-- Returns ClerkUser object for DRF compatibility
+#### Step 2.6: Create page components
+**Files**:
+- `assets/templates/frontend/src/pages/Home.tsx`
+- `assets/templates/frontend/src/pages/SignIn.tsx`
+- `assets/templates/frontend/src/pages/SignUp.tsx`
+- `assets/templates/frontend/src/pages/Dashboard.tsx`
 
-#### Step 2.4: API Endpoints
-**Objective**: Core API structure
-**Details**:
-- Health check endpoint at `/api/health/`
-- Auth status endpoint at `/api/auth/me/`
-- URL configuration with API router
+#### Step 2.7: Create DashboardLayout
+**File**: `assets/templates/frontend/src/layouts/DashboardLayout.tsx`
 
-#### Step 2.5: Requirements
-**Objective**: Pin all Python dependencies
-**Details**:
-```
-Django>=5.2,<5.3
-djangorestframework>=3.15,<4
-django-cors-headers>=4.6,<5
-dj-database-url>=2.3,<3
-gunicorn>=23,<24
-whitenoise>=6.8,<7
-psycopg[binary]>=3.2,<4
-PyJWT[crypto]>=2.11,<3
-python-decouple>=3.8,<4
-```
+#### Step 2.8: Create ProtectedRoute
+**Objective**: Client-side route protection (replaces Clerk middleware)
+**File**: `assets/templates/frontend/src/components/ProtectedRoute.tsx`
 
-#### Step 2.6: Gunicorn Config
-**Objective**: Production-ready gunicorn configuration
-**Details**:
-- Worker count based on CPU cores
-- Graceful timeout
-- Access logging
-- Bind to 0.0.0.0:8000
+#### Step 2.9: Create nginx.conf
+**Objective**: Production nginx config for SPA + API proxy
+**File**: `assets/templates/frontend/nginx.conf`
 
-### Phase 3: Next.js Frontend Templates
+### Phase 3: Rewrite Existing Frontend Templates
 
-#### Step 3.1: Next.js Project Structure
-**Objective**: App Router project with Clerk
-**Details**:
-- Root layout with ClerkProvider
-- Middleware with clerkMiddleware + route matcher
-- Sign-in/sign-up pages
-- Dashboard page (protected)
-- API client utility with token passing
+#### Step 3.1: Rewrite package.json
+**Changes**: Remove next/@clerk/nextjs, add vite/react-router/@clerk/clerk-react
 
-#### Step 3.2: API Client
-**Objective**: Typed API client for Django communication
-**Details**:
-- `lib/api.ts` with fetch wrapper
-- Automatically attaches Clerk Bearer token
-- Uses `/api/` prefix (proxied to Django)
+#### Step 3.2: Rewrite tsconfig.json
+**Changes**: Remove Next.js plugin, update for Vite
 
-#### Step 3.3: Next.js Config
-**Objective**: Configure API proxying and build settings
-**Details**:
-- `next.config.ts` with rewrites to Django
-- Output standalone for Docker
+#### Step 3.3: Rewrite Dockerfile
+**Changes**: 2-stage build (node build + nginx serve) instead of 3-stage Next.js standalone
 
-### Phase 4: Docker Configuration
+#### Step 3.4: Rewrite .gitignore
+**Changes**: Remove .next/, add dist/
 
-#### Step 4.1: Django Dockerfile
-**Objective**: Multi-stage production Dockerfile
-**Details**:
-- Stage 1 (builder): Install Python deps
-- Stage 2 (runtime): Copy deps + code, collectstatic at build
-- Non-root user
-- Entrypoint script
+#### Step 3.5: Rewrite .env.local.example
+**Changes**: VITE_ prefix instead of NEXT_PUBLIC_
 
-#### Step 4.2: Django Entrypoint
-**Objective**: Safe container startup script
-**Details**:
-- Wait for Postgres with pg_isready loop
-- Run migrations with advisory lock (SELECT pg_advisory_lock)
-- Start gunicorn
-- Handle SIGTERM gracefully
+#### Step 3.6: Update api.ts
+**Changes**: Update comments about proxy mechanism
 
-#### Step 4.3: Next.js Dockerfile
-**Objective**: Multi-stage production Dockerfile
-**Details**:
-- Stage 1: Install deps
-- Stage 2: Build with standalone output
-- Stage 3: Run with minimal image
-- Non-root user
+### Phase 4: Update Docker & Root Config Templates
 
-#### Step 4.4: Docker Compose (Dev)
-**Objective**: Turn-key local development
-**Details**:
-- postgres service with health check, named volume
-- backend service with volume mount, depends_on postgres
-- frontend service with volume mount
-- Shared .env file
+#### Step 4.1: Update docker-compose.yml
+**Changes**: Frontend service uses Vite dev server instead of Next.js
 
-#### Step 4.5: Docker Compose (Prod)
-**Objective**: Production reference compose
-**Details**:
-- Uses built images
-- No volume mounts
-- Health checks on all services
+#### Step 4.2: Update docker-compose.prod.yml
+**Changes**: Frontend builds to nginx instead of Node.js server
 
-### Phase 5: Developer Experience
+#### Step 4.3: Update .env.example
+**Changes**: Minor — remove FRONTEND_PORT if not needed, update comments
 
-#### Step 5.1: start-local-dev.sh
-**Objective**: Single command to start development
-**Details**:
-- Check Docker is running
-- Copy .env.example to .env if not exists
-- Generate Django SECRET_KEY if not set
-- docker compose up --build
-- Print access URLs
+#### Step 4.4: Update root .gitignore
+**Changes**: Update Node.js section (remove .next, add dist)
 
-#### Step 5.2: .env Files
-**Objective**: Environment configuration
-**Details**:
-- `.env.example` with all vars documented
-- `.env` with local defaults (git-ignored)
-- Separate sections: Django, Database, Clerk, Frontend
+#### Step 4.5: Update start-local-dev.sh
+**Changes**: Update any Next.js references in output/comments
 
-#### Step 5.3: .gitignore
-**Objective**: Comprehensive gitignore
-**Details**: Python, Node.js, Docker, IDE, OS files, .env
+### Phase 5: Update Documentation
 
-#### Step 5.4: README
-**Objective**: Getting started documentation
-**Details**:
-- Prerequisites
-- Quick start (3 steps)
-- Environment variables reference
-- Project structure
-- Development workflow
-- Production deployment notes
+#### Step 5.1: Rewrite SKILL.md
+**Changes**: All Next.js references → React/Vite, update file tree, update step 4
 
-## Quality Assurance
+#### Step 5.2: Update architecture.md
+**Changes**: Update proxy section, add Vite/nginx reasoning
 
-- All files must be syntactically valid
-- Django settings must pass `manage.py check --deploy` in production mode
-- Docker compose must start without errors
-- All environment variables documented in .env.example
-- No hardcoded secrets anywhere
-- Non-root Docker users
-- Health checks on all services
+#### Step 5.3: Rewrite template README.md
+**Changes**: Full update of stack table, project structure, auth flow
 
-## Risk Register
+#### Step 5.4: Update root README.md
+**Changes**: Replace Next.js references with React/Vite
 
-| Risk | Mitigation |
-|------|------------|
-| Clerk SDK breaking changes | Pin versions, use manual PyJWT as primary (stable API) |
-| Migration race condition | Advisory lock in entrypoint script |
-| Database not ready | pg_isready loop with timeout and backoff |
-| Port conflicts | Configurable via .env (default 8000, 3000, 5432) |
-| create-next-app interactive prompts | Use --yes flag and explicit options |
-| Python/Node version drift | Pin in Dockerfiles, document in README |
+### Phase 6: Clean Up Agent Skills & Memory
 
-## File Structure (Final Skill)
+#### Step 6.1: Remove clerk-nextjs-patterns
+**Action**: Delete `.agents/skills/clerk-nextjs-patterns/` directory
 
-```
-.claude/skills/starter-django/
-├── SKILL.md                        # Main skill instructions
-├── scripts/
-│   ├── create-project.sh           # Master orchestration script
-│   └── wait-for-db.sh              # Database readiness check
-├── references/
-│   └── architecture.md             # Architecture decisions doc
-└── assets/
-    └── templates/                  # All file templates
-        ├── backend/
-        │   ├── requirements.txt
-        │   ├── Dockerfile
-        │   ├── entrypoint.sh
-        │   ├── gunicorn.conf.py
-        │   ├── config/
-        │   │   ├── settings/
-        │   │   │   ├── base.py
-        │   │   │   ├── development.py
-        │   │   │   └── production.py
-        │   │   ├── urls.py
-        │   │   ├── wsgi.py
-        │   │   └── asgi.py
-        │   └── apps/
-        │       ├── accounts/
-        │       │   ├── models.py
-        │       │   ├── admin.py
-        │       │   ├── managers.py
-        │       │   ├── authentication.py
-        │       │   ├── serializers.py
-        │       │   ├── views.py
-        │       │   ├── urls.py
-        │       │   └── apps.py
-        │       └── core/
-        │           ├── views.py
-        │           ├── urls.py
-        │           └── apps.py
-        ├── frontend/
-        │   ├── Dockerfile
-        │   ├── next.config.ts
-        │   ├── src/
-        │   │   ├── app/
-        │   │   │   ├── layout.tsx
-        │   │   │   ├── page.tsx
-        │   │   │   ├── (auth)/
-        │   │   │   │   ├── sign-in/[[...sign-in]]/page.tsx
-        │   │   │   │   └── sign-up/[[...sign-up]]/page.tsx
-        │   │   │   └── (dashboard)/
-        │   │   │       ├── layout.tsx
-        │   │   │       └── dashboard/page.tsx
-        │   │   ├── components/
-        │   │   │   └── providers.tsx
-        │   │   ├── lib/
-        │   │   │   └── api.ts
-        │   │   └── middleware.ts
-        │   └── .env.local.example
-        ├── docker-compose.yml
-        ├── docker-compose.prod.yml
-        ├── .env.example
-        ├── .gitignore
-        ├── start-local-dev.sh
-        └── README.md
-```
+#### Step 6.2: Update skills-lock.json
+**Action**: Remove `clerk-nextjs-patterns` entry
+
+#### Step 6.3: Update MEMORY.md
+**Action**: Replace Next.js stack info with React/Vite
+
+## Quality Criteria
+
+- No remaining references to "Next.js", "next.config", "@clerk/nextjs", "App Router", "middleware.ts" in the skill
+- All frontend templates are valid React/Vite files
+- Docker configs work with nginx-based frontend
+- Vite dev proxy correctly routes to Django
+- Clerk auth still works end-to-end (same JWT flow, different client SDK)
+- README and SKILL.md accurately describe the new stack

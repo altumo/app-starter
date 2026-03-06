@@ -1,10 +1,8 @@
-"use client";
-
-import { useUser } from "@clerk/nextjs";
+import { useUser } from "@clerk/clerk-react";
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 
-export default function DashboardPage() {
+export default function Dashboard() {
   const { user } = useUser();
   const [healthStatus, setHealthStatus] = useState<string>("checking...");
 

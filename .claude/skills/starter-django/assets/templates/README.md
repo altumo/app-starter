@@ -1,12 +1,12 @@
 # __PROJECT_NAME__
 
-Full-stack application built with Django + Next.js + PostgreSQL + Clerk + Docker.
+Full-stack application built with Django + React + PostgreSQL + Clerk + Docker.
 
 ## Stack
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | Next.js (App Router) + TypeScript + Tailwind CSS |
+| Frontend | React (Vite) + TypeScript + Tailwind CSS |
 | Authentication | Clerk |
 | Backend API | Django 5.2 LTS + Django REST Framework |
 | Database | PostgreSQL 17 |
@@ -46,8 +46,7 @@ CLERK_JWKS_URL=https://your-instance.clerk.accounts.dev/.well-known/jwks.json
 
 Edit `frontend/.env.local`:
 ```bash
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_your_key_here
-CLERK_SECRET_KEY=sk_test_your_key_here
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_your_key_here
 ```
 
 ### 3. Start Development
@@ -88,13 +87,16 @@ That's it. The script handles everything:
 │   ├── Dockerfile              # Production image
 │   ├── entrypoint.sh           # Startup script (migrations + gunicorn)
 │   └── requirements.txt
-├── frontend/                   # Next.js app
+├── frontend/                   # React (Vite) app
 │   ├── src/
-│   │   ├── app/                # App Router pages
-│   │   ├── lib/api.ts          # API client
-│   │   └── middleware.ts       # Clerk middleware
-│   ├── Dockerfile              # Production image
-│   └── next.config.ts          # API proxy config
+│   │   ├── App.tsx             # Router + Clerk provider
+│   │   ├── pages/              # Page components
+│   │   ├── layouts/            # Layout components
+│   │   ├── components/         # Shared components
+│   │   └── lib/api.ts          # API client
+│   ├── Dockerfile              # Production image (nginx)
+│   ├── nginx.conf              # Production proxy + static serving
+│   └── vite.config.ts          # Dev proxy config
 ├── docker-compose.yml          # Local development
 ├── docker-compose.prod.yml     # Production reference
 ├── .env.example                # Environment template
@@ -124,7 +126,8 @@ docker compose exec frontend npm <command>
 
 ### API Architecture
 
-- Next.js proxies `/api/*` requests to Django via `next.config.ts` rewrites
+- Vite dev server proxies `/api/*` requests to Django via `vite.config.ts`
+- In production, nginx proxies `/api/*` to Django and serves the static frontend bundle
 - No CORS issues during development
 - Clerk JWT tokens are passed as `Authorization: Bearer <token>` headers
 - Django verifies tokens using Clerk's JWKS endpoint
@@ -134,9 +137,8 @@ docker compose exec frontend npm <command>
 1. User signs in via Clerk (frontend)
 2. Frontend gets session JWT from Clerk via `getToken()`
 3. Frontend sends JWT as Bearer token to `/api/*` endpoints
-4. Next.js proxies the request to Django
-5. Django's `ClerkJWTAuthentication` class verifies the JWT using JWKS
-6. Request proceeds with authenticated `ClerkUser` object
+4. Django's `ClerkJWTAuthentication` class verifies the JWT using JWKS
+5. Request proceeds with authenticated `ClerkUser` object
 
 ## Production
 
@@ -150,7 +152,7 @@ docker compose -f docker-compose.prod.yml build
 
 The production setup:
 - Django runs behind Gunicorn with worker auto-scaling
-- Next.js uses standalone output for minimal image size
+- Frontend is served as static files by nginx, which also proxies `/api/*` to Django
 - Entrypoint script waits for DB and runs migrations with advisory lock
 - Both services include Docker health checks
 - Static files served by WhiteNoise

@@ -21,12 +21,13 @@ The `ClerkJWTAuthentication` class in `apps/accounts/authentication.py` handles:
 - Avoids many `if DEBUG:` conditionals in a single file
 - `DJANGO_SETTINGS_MODULE` environment variable controls which is active
 
-## Why Next.js rewrites instead of CORS for development?
+## Why proxy instead of CORS for development?
 
 - No CORS preflight requests (faster API calls)
 - No browser CORS errors to debug
 - The proxy is transparent - frontend code just calls `/api/*`
-- Production can use either proxy or direct CORS
+- In development, Vite's built-in dev server proxy forwards `/api/*` to Django
+- In production, nginx proxies `/api/*` to Django and serves the static frontend bundle
 
 ## Why advisory lock for migrations?
 

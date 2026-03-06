@@ -1,98 +1,92 @@
-# Goal Analysis: Django + Next.js + Postgres + Clerk + Docker Bootstrap Skill
+# Goal Analysis: Replace Next.js with React (Vite)
 
 ## Objective
 
-Build a Claude Code skill that bootstraps a production-ready full-stack project using Django (backend API) + Next.js (frontend) + PostgreSQL (database) + Clerk (authentication) + Docker (containerization).
+Remove all Next.js dependencies from the `starter-django` skill and replace with a plain React SPA using Vite as the build tool. Django remains the only backend server. The frontend becomes a pure client-side React application.
 
-## Distinct Goals
+## Key Architectural Shifts
 
-### Goal 1: Git Repository Setup
-- Initialize a git repository if not already present
-- Set up proper .gitignore for Python, Node.js, and Docker artifacts
-- Ensure the project starts clean
+### 1. API Proxy Pattern
+- **Current**: Next.js `rewrites` in `next.config.ts` proxy `/api/*` to Django — frontend has a server
+- **New**: Vite dev server proxy in `vite.config.ts` during development; nginx reverse proxy in production Docker — frontend has NO server, only static files
 
-### Goal 2: Django Backend Setup
-- Create a Django project with best-practices structure
-- Custom User model from the start (can't change later)
-- Split settings for dev/prod or env-var-driven single settings
-- Django REST Framework for API endpoints
-- CORS configuration for Next.js frontend
-- Health check endpoint
-- Gunicorn for production serving
-- WhiteNoise for static files
-- Proper MIDDLEWARE ordering
+### 2. Authentication Integration
+- **Current**: `@clerk/nextjs` — provides middleware, server components, ClerkProvider
+- **New**: `@clerk/clerk-react` — client-only provider, hooks, components. No middleware (route protection via React Router)
 
-### Goal 3: PostgreSQL Database Configuration
-- Database connection via DATABASE_URL environment variable
-- Connection pooling (CONN_MAX_AGE)
-- Migration workflow that works in both dev and production Docker
-- Safe migration execution on container startup (race condition handling)
+### 3. Routing
+- **Current**: Next.js App Router (file-based), route groups `(auth)/(dashboard)`, catch-all `[[...sign-in]]`, `Link` from `next/link`
+- **New**: React Router v7, explicit route config, `<Link>` from `react-router`, protected route wrapper
 
-### Goal 4: Clerk Authentication Integration
-- Clerk JWT verification in Django (middleware or DRF authentication class)
-- Clerk SDK for Python (clerk-backend-api or PyJWT-based verification)
-- Clerk provider setup in Next.js frontend
-- Clerk middleware in Next.js (middleware.ts)
-- Protected API routes pattern: Next.js gets Clerk token -> passes to Django API
-- Environment variables for Clerk keys (publishable key, secret key)
+### 4. Production Serving
+- **Current**: Node.js standalone server (`node server.js`), 3-stage Docker build
+- **New**: nginx serving static `dist/` files + proxying `/api` to backend, 2-stage Docker build (build + nginx)
 
-### Goal 5: Next.js Frontend Setup
-- App Router (modern approach)
-- TypeScript by default
-- Configured to talk to Django API backend
-- API proxy/rewrites for local development
-- Clerk provider wrapping the app
-- Protected routes with Clerk
+### 5. Environment Variables
+- **Current**: `NEXT_PUBLIC_` prefix for client-exposed vars
+- **New**: `VITE_` prefix for client-exposed vars
 
-### Goal 6: Docker Local Development
-- docker-compose.yml with PostgreSQL, Django, Next.js services
-- Turn-key: single command to start everything (./start-local-dev.sh)
-- Hot-reload for both Django and Next.js in development
-- PostgreSQL with health checks
-- Automatic database creation and migration on first run
-- .env file with sensible defaults for local development
-- .env.example with documentation
+### 6. Clerk Middleware → Client-Side Protection
+- **Current**: `clerkMiddleware` in `src/middleware.ts` protects routes server-side
+- **New**: `ProtectedRoute` component wrapping React Router routes client-side
 
-### Goal 7: Production Docker Configuration
-- Multi-stage Dockerfile for Django (small, secure image)
-- Multi-stage Dockerfile for Next.js (standalone output)
-- Django entrypoint that:
-  - Waits for database readiness
-  - Runs migrations safely (with lock to prevent race conditions)
-  - Collects static files
-  - Starts gunicorn
-- Production-ready gunicorn configuration
-- Health check endpoints in both services
+## Files Inventory
 
-### Goal 8: Developer Experience & Tooling
-- .env / .env.example pattern
-- start-local-dev.sh script that handles first-time setup
-- Requirements management (requirements.txt or pyproject.toml)
-- Package.json with useful scripts
-- .dockerignore files
-- README with getting started instructions
+### Frontend Templates — DELETE
+- `frontend/next.config.ts`
+- `frontend/src/middleware.ts`
+- `frontend/src/app/` (entire directory — replaced by pages/layouts/components)
 
-## Inferred Requirements (not explicitly stated but logically necessary)
-- CORS headers on Django for Next.js frontend communication
-- CSRF exemption for API endpoints (using token auth instead)
-- Proper secret key generation for Django
-- Node modules and Python venv not committed to git
-- Database data persisted via Docker volume
-- Environment-specific behavior (DEBUG, ALLOWED_HOSTS, etc.)
+### Frontend Templates — CREATE NEW
+- `frontend/vite.config.ts` — Vite config with dev proxy
+- `frontend/index.html` — Vite entry point (required at root)
+- `frontend/src/main.tsx` — React entry point
+- `frontend/src/App.tsx` — Root component with ClerkProvider + Router
+- `frontend/src/index.css` — moved from `src/app/globals.css`
+- `frontend/src/pages/Home.tsx`
+- `frontend/src/pages/SignIn.tsx`
+- `frontend/src/pages/SignUp.tsx`
+- `frontend/src/pages/Dashboard.tsx`
+- `frontend/src/layouts/DashboardLayout.tsx`
+- `frontend/src/components/ProtectedRoute.tsx`
+- `frontend/nginx.conf` — production nginx config for Docker
 
-## Logical Flow / Dependencies
-1. Git init (if needed)
-2. Django project scaffold -> settings -> custom user model -> DRF setup
-3. Clerk Django integration (authentication backend/middleware)
-4. Next.js project scaffold -> Clerk integration -> API client setup
-5. Docker compose for local dev (Postgres + Django + Next.js)
-6. Production Dockerfiles
-7. start-local-dev.sh script
-8. .env files and documentation
+### Frontend Templates — REWRITE
+- `frontend/package.json` — new deps
+- `frontend/tsconfig.json` — Vite-compatible
+- `frontend/Dockerfile` — nginx-based
+- `frontend/.gitignore` — Vite entries
+- `frontend/.env.local.example` — VITE_ prefix
+- `frontend/src/lib/api.ts` — update comments
+- `frontend/postcss.config.mjs` — keep as-is (Tailwind v4)
 
-## Risks & Mitigations
-- **Clerk SDK availability for Python**: May need to use PyJWT directly if no official SDK
-- **Migration race conditions in production**: Use advisory lock or single-migration container
-- **Version pinning**: Pin all dependencies to prevent breaking changes
-- **Port conflicts in local dev**: Use non-standard ports or make configurable
-- **Database not ready on startup**: Implement wait-for-db pattern
+### Skill Docs — UPDATE
+- `SKILL.md` — all Next.js references → React/Vite
+- `references/architecture.md` — update proxy and routing sections
+- `assets/templates/README.md` — full rewrite of frontend references
+
+### Root Config Templates — UPDATE
+- `docker-compose.yml` — frontend service changes
+- `docker-compose.prod.yml` — frontend service changes
+- `.env.example` — minor updates
+- `.gitignore` — update Node.js section
+- `start-local-dev.sh` — update references
+
+### Root Project Files — UPDATE
+- `README.md` — replace Next.js references
+- `MEMORY.md` — update stack info
+
+### Agent Skills — REMOVE
+- `.agents/skills/clerk-nextjs-patterns/` — Next.js-specific, no longer relevant
+- `skills-lock.json` — remove `clerk-nextjs-patterns` entry
+
+### Backend — NO CHANGES
+- CORS already configured for both dev and prod
+- Clerk JWT verification is framework-agnostic
+- No Next.js references in backend code
+
+## Non-Goals
+- Changing the Django backend architecture
+- Changing the Clerk JWT verification approach
+- Changing the database or Docker base images
+- Adding new features beyond what currently exists

@@ -1,46 +1,27 @@
 ###############################################
-# Stage 1: Install dependencies
-###############################################
-FROM node:22-alpine AS deps
-WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
-
-###############################################
-# Stage 2: Build the application
+# Stage 1: Build the application
 ###############################################
 FROM node:22-alpine AS builder
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+COPY package.json package-lock.json* ./
+RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 COPY . .
-
-# Build with standalone output
 RUN npm run build
 
 ###############################################
-# Stage 3: Production runtime
+# Stage 2: Serve with nginx
 ###############################################
-FROM node:22-alpine AS runner
-WORKDIR /app
+FROM nginx:alpine
 
-ENV NODE_ENV=production
+# Copy built assets
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
-
-# Copy standalone build output
-COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-USER nextjs
+# Copy nginx config
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 3000
 
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
-
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
-CMD ["node", "server.js"]
+CMD ["nginx", "-g", "daemon off;"]
