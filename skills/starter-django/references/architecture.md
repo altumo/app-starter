@@ -1,33 +1,39 @@
 # Architecture Decisions
 
-## Why PyJWT instead of clerk-django?
+## Why django-allauth instead of Clerk?
 
-The `clerk-django` package (v1.0.3) is a young wrapper around `clerk-backend-api`. Using PyJWT + JWKS directly gives us:
-- Zero dependency on Clerk's Python SDK release cycle
-- Full control over JWT verification logic
-- Standard JWKS-based verification (works with any OIDC provider)
-- Easier to debug and customize
+Clerk is a JavaScript-first auth provider designed for SPAs. For a pure Django project with server-rendered templates, django-allauth is the standard choice:
+- Native Django integration (middleware, template tags, session auth)
+- No external service dependency — auth works offline
+- Email/password out of the box, social login providers ready to add
+- Battle-tested in the Django ecosystem (most popular auth package)
+- Free and open source with no usage limits
 
-The `ClerkJWTAuthentication` class in `apps/accounts/authentication.py` handles:
-- Fetching public keys from Clerk's JWKS endpoint (with caching)
-- Verifying JWT signature, expiration, and authorized parties
-- Creating a `ClerkUser` object compatible with DRF's authentication system
+## Why email-only auth (no username)?
+
+- Most modern apps use email as the primary identifier
+- Eliminates username uniqueness conflicts
+- Simpler signup flow (one less field)
+- `AbstractBaseUser + PermissionsMixin` avoids a dead `username` column
+- django-allauth supports this natively with `ACCOUNT_USER_MODEL_USERNAME_FIELD = None`
 
 ## Why split settings instead of a single file?
 
 - `base.py` contains all shared configuration
-- `development.py` enables DEBUG, allows all CORS origins, uses console email
-- `production.py` enforces HTTPS, specific CORS origins, security headers
+- `development.py` enables DEBUG, uses console email backend
+- `production.py` enforces HTTPS, configures SMTP email
 - Avoids many `if DEBUG:` conditionals in a single file
 - `DJANGO_SETTINGS_MODULE` environment variable controls which is active
 
-## Why proxy instead of CORS for development?
+## Why Tailwind CSS standalone CLI instead of Node.js?
 
-- No CORS preflight requests (faster API calls)
-- No browser CORS errors to debug
-- The proxy is transparent - frontend code just calls `/api/*`
-- In development, Vite's built-in dev server proxy forwards `/api/*` to Django
-- In production, nginx proxies `/api/*` to Django and serves the static frontend bundle
+- No Node.js, npm, or package.json anywhere in the project
+- Single binary download (~45MB), no dependency tree
+- Tailwind v4 uses `@import "tailwindcss"` — one line of CSS, no config file
+- Automatic template scanning works with Django templates out of the box
+- Development: watch mode alongside `manage.py runserver`
+- Production: build step in Docker multi-stage (separate from Python)
+- The binary is cached in a Docker volume for fast restarts
 
 ## Why advisory lock for migrations?
 
@@ -51,8 +57,30 @@ Changing AUTH_USER_MODEL after creating the initial migration is extremely diffi
 - No need for nginx or CDN for small-to-medium apps
 - Can be replaced with CDN later without code changes
 
+## Why single container (no nginx)?
+
+- WhiteNoise handles static file serving efficiently
+- Gunicorn serves both pages and static files
+- One fewer service to manage, configure, and monitor
+- nginx adds complexity without meaningful benefit at this scale
+- For high traffic, add a CDN in front — not nginx
+
+## Why no DRF (Django REST Framework)?
+
+- Django's built-in views handle HTML templates
+- `JsonResponse` handles the health check endpoint
+- Users can add DRF later when they need a JSON API
+- Fewer dependencies = less to maintain and upgrade
+
 ## Database Connection Strategy
 
 - `CONN_MAX_AGE=600` keeps connections alive for 10 minutes (via dj-database-url)
 - Suitable for moderate traffic without external connection pooler
 - For high traffic, add PgBouncer between Django and PostgreSQL
+
+## Why function-based views for pages?
+
+- `home()` and `dashboard()` are two-line render functions
+- `@login_required` is simpler than `LoginRequiredMixin` for this case
+- No reason for class-based views when there's no complex logic
+- Easy to evolve: add context data, form handling as needed

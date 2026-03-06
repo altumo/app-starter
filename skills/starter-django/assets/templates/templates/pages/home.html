@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}__PROJECT_NAME__{% endblock %}
+
+{% block content %}
+<main class="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center px-4">
+  <h1 class="text-4xl font-bold mb-8 text-gray-900">__PROJECT_NAME__</h1>
+
+  {% if user.is_authenticated %}
+  <div class="flex flex-col items-center gap-4">
+    <p class="text-gray-600">Welcome back, {{ user.email }}</p>
+    <a href="{% url 'dashboard' %}"
+       class="inline-flex items-center px-6 py-3 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">
+      Go to Dashboard
+    </a>
+  </div>
+  {% else %}
+  <div class="flex gap-4">
+    <a href="{% url 'account_login' %}"
+       class="inline-flex items-center px-6 py-3 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">
+      Sign In
+    </a>
+    <a href="{% url 'account_signup' %}"
+       class="inline-flex items-center px-6 py-3 text-base font-medium text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition">
+      Sign Up
+    </a>
+  </div>
+  {% endif %}
+</main>
+{% endblock %}

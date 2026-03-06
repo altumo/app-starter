@@ -1,185 +1,350 @@
-# Execution Plan: Replace Next.js with React (Vite)
+# Execution Plan: Refactor starter-django to Pure Django
 
 ## Overview
 
-Remove all Next.js dependencies from the starter-django skill and replace with a plain React SPA using Vite. The frontend becomes static files served by nginx in production, with Vite's dev proxy replacing Next.js rewrites. Django remains the sole backend.
+Refactor the `starter-django` skill from a two-container Django+React architecture to a single-container pure Django architecture. Replace React/Vite/Node.js frontend with Django templates + Tailwind CSS v4 (standalone CLI). Replace Clerk auth with django-allauth. Remove DRF, CORS, nginx. Flatten project structure.
 
 ## Goals
 
-1. Replace all Next.js frontend templates with Vite + React Router + @clerk/clerk-react equivalents
-2. Update Docker configuration for static-file serving (nginx) instead of Node.js server
-3. Update all documentation and skill instructions to reflect React/Vite stack
-4. Remove the `clerk-nextjs-patterns` agent skill (Next.js-specific)
-5. Update project memory to reflect new stack
+1. Eliminate the separate React/Vite/Node.js frontend
+2. Replace Clerk with django-allauth (email/password auth)
+3. Single container: Django + Gunicorn (+ PostgreSQL as separate DB service)
+4. Flatten project structure (no `backend/` subdirectory)
+5. Keep: split settings, custom User model, pg_advisory_lock, health check, WhiteNoise, multi-stage Docker
+6. Update all documentation (SKILL.md, READMEs, architecture.md)
 
 ## Architecture
 
-```
-project-root/
-├── backend/                    # Django project (UNCHANGED)
-│   ├── config/settings/
-│   ├── apps/
-│   ├── Dockerfile
-│   └── entrypoint.sh
-├── frontend/                   # React SPA (Vite)
-│   ├── src/
-│   │   ├── main.tsx            # Entry point
-│   │   ├── App.tsx             # ClerkProvider + Router
-│   │   ├── index.css           # Tailwind
-│   │   ├── pages/
-│   │   │   ├── Home.tsx
-│   │   │   ├── SignIn.tsx
-│   │   │   ├── SignUp.tsx
-│   │   │   └── Dashboard.tsx
-│   │   ├── layouts/
-│   │   │   └── DashboardLayout.tsx
-│   │   ├── components/
-│   │   │   └── ProtectedRoute.tsx
-│   │   └── lib/
-│   │       └── api.ts
-│   ├── index.html              # Vite entry
-│   ├── vite.config.ts          # Dev proxy + build config
-│   ├── tsconfig.json
-│   ├── postcss.config.mjs
-│   ├── package.json
-│   ├── nginx.conf              # Production serving
-│   ├── Dockerfile
-│   ├── .env.local.example
-│   └── .gitignore
-├── docker-compose.yml
-├── docker-compose.prod.yml
-├── .env.example
-├── .gitignore
-├── start-local-dev.sh
-└── README.md
-```
-
-### Key Decisions
-
-1. **Vite dev proxy** replaces Next.js rewrites — same DX, simpler stack
-2. **React Router v7** for client-side routing — explicit routes, protected route wrapper
-3. **@clerk/clerk-react** instead of `@clerk/nextjs` — client-only, no server components
-4. **nginx** serves static files in production and proxies `/api` to Django backend
-5. **No SSR** — pure client-side React SPA
+- **Auth**: django-allauth (session-based, email-only, no username)
+- **Templates**: Django template engine + Tailwind CSS v4
+- **CSS Build**: Tailwind standalone CLI (no Node.js)
+- **Static Files**: WhiteNoise (same as before)
+- **Container**: Single `web` service + PostgreSQL
+- **Views**: Function-based views with `@login_required`
 
 ## Execution Steps
 
-### Phase 1: Delete Next.js Frontend Templates
+All paths relative to `skills/starter-django/`.
 
-#### Step 1.1: Remove Next.js-specific files
-**Objective**: Delete files that have no React/Vite equivalent
-**Files to delete**:
-- `assets/templates/frontend/next.config.ts`
-- `assets/templates/frontend/src/middleware.ts`
-- `assets/templates/frontend/src/app/` (entire directory)
+### Phase 1: Delete Old Files
 
-### Phase 2: Create New React Frontend Templates
+#### Step 1.1: Remove frontend directory
+**Objective**: Delete the entire React/Vite frontend
+**Details**: Delete `assets/templates/frontend/` and all its contents.
+**Quality Criteria**: Directory no longer exists.
 
-#### Step 2.1: Create vite.config.ts
-**Objective**: Vite config with dev proxy to Django
-**File**: `assets/templates/frontend/vite.config.ts`
+#### Step 1.2: Remove Clerk/DRF files from backend
+**Objective**: Remove files that are being replaced
+**Details**: Delete these files from `assets/templates/backend/`:
+- `apps/accounts/authentication.py`
+- `apps/accounts/serializers.py`
+- `apps/accounts/views.py`
+- `apps/accounts/urls.py`
+- `apps/core/urls.py`
+**Quality Criteria**: Files no longer exist.
 
-#### Step 2.2: Create index.html
-**Objective**: Vite entry point HTML
-**File**: `assets/templates/frontend/index.html`
+#### Step 1.3: Remove docker-compose.prod.yml
+**Objective**: Remove the separate prod compose file
+**Details**: Delete `assets/templates/docker-compose.prod.yml`.
+**Quality Criteria**: File no longer exists.
 
-#### Step 2.3: Create main.tsx
-**Objective**: React entry point
-**File**: `assets/templates/frontend/src/main.tsx`
+### Phase 2: Flatten Project Structure
 
-#### Step 2.4: Create App.tsx
-**Objective**: Root component with ClerkProvider + BrowserRouter + Routes
-**File**: `assets/templates/frontend/src/App.tsx`
+#### Step 2.1: Move backend files to root
+**Objective**: Eliminate the `backend/` subdirectory
+**Details**: Move all files from `assets/templates/backend/` to `assets/templates/`. This includes:
+- `manage.py`, `requirements.txt`, `Dockerfile`, `entrypoint.sh`, `gunicorn.conf.py`
+- `config/` directory (settings, urls, wsgi, asgi)
+- `apps/` directory (accounts, core)
+Then delete the empty `assets/templates/backend/` directory.
+**Quality Criteria**: No `backend/` directory exists. All files at root of `assets/templates/`.
 
-#### Step 2.5: Create index.css
-**Objective**: Tailwind import (moved from globals.css)
-**File**: `assets/templates/frontend/src/index.css`
+### Phase 3: Create New Files
 
-#### Step 2.6: Create page components
-**Files**:
-- `assets/templates/frontend/src/pages/Home.tsx`
-- `assets/templates/frontend/src/pages/SignIn.tsx`
-- `assets/templates/frontend/src/pages/SignUp.tsx`
-- `assets/templates/frontend/src/pages/Dashboard.tsx`
+#### Step 3.1: Create pages app
+**Objective**: Add the new pages app for template views
+**Details**: Create `assets/templates/apps/pages/` with:
 
-#### Step 2.7: Create DashboardLayout
-**File**: `assets/templates/frontend/src/layouts/DashboardLayout.tsx`
+`apps/pages/__init__.py` — empty file
 
-#### Step 2.8: Create ProtectedRoute
-**Objective**: Client-side route protection (replaces Clerk middleware)
-**File**: `assets/templates/frontend/src/components/ProtectedRoute.tsx`
+`apps/pages/apps.py`:
+```python
+from django.apps import AppConfig
 
-#### Step 2.9: Create nginx.conf
-**Objective**: Production nginx config for SPA + API proxy
-**File**: `assets/templates/frontend/nginx.conf`
 
-### Phase 3: Rewrite Existing Frontend Templates
+class PagesConfig(AppConfig):
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "apps.pages"
+    verbose_name = "Pages"
+```
 
-#### Step 3.1: Rewrite package.json
-**Changes**: Remove next/@clerk/nextjs, add vite/react-router/@clerk/clerk-react
+`apps/pages/views.py`:
+```python
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render
 
-#### Step 3.2: Rewrite tsconfig.json
-**Changes**: Remove Next.js plugin, update for Vite
 
-#### Step 3.3: Rewrite Dockerfile
-**Changes**: 2-stage build (node build + nginx serve) instead of 3-stage Next.js standalone
+def home(request):
+    """Public home page."""
+    return render(request, "pages/home.html")
 
-#### Step 3.4: Rewrite .gitignore
-**Changes**: Remove .next/, add dist/
 
-#### Step 3.5: Rewrite .env.local.example
-**Changes**: VITE_ prefix instead of NEXT_PUBLIC_
+@login_required
+def dashboard(request):
+    """Protected dashboard page. Requires authentication."""
+    return render(request, "pages/dashboard.html")
+```
 
-#### Step 3.6: Update api.ts
-**Changes**: Update comments about proxy mechanism
+#### Step 3.2: Create Django templates
+**Objective**: Create all HTML templates
+**Details**: Create `assets/templates/templates/` directory with all templates.
 
-### Phase 4: Update Docker & Root Config Templates
+`templates/base.html` — master layout with nav, messages, Tailwind CSS link. Nav shows Sign In/Sign Up for anonymous, email + Sign Out for authenticated. Sign Out is a POST form with CSRF token.
 
-#### Step 4.1: Update docker-compose.yml
-**Changes**: Frontend service uses Vite dev server instead of Next.js
+`templates/pages/home.html` — extends base.html, centered project name, sign-in/sign-up buttons for anonymous, dashboard link for authenticated.
 
-#### Step 4.2: Update docker-compose.prod.yml
-**Changes**: Frontend builds to nginx instead of Node.js server
+`templates/pages/dashboard.html` — extends base.html, welcome card with user email.
 
-#### Step 4.3: Update .env.example
-**Changes**: Minor — remove FRONTEND_PORT if not needed, update comments
+See template-ui-analysis.md for exact contents.
 
-#### Step 4.4: Update root .gitignore
-**Changes**: Update Node.js section (remove .next, add dist)
+#### Step 3.3: Create allauth template overrides
+**Objective**: Style allauth pages with Tailwind
+**Details**: Create `assets/templates/templates/allauth/` with:
 
-#### Step 4.5: Update start-local-dev.sh
-**Changes**: Update any Next.js references in output/comments
+`allauth/layouts/base.html` — extends project base.html, centers content in max-w-md container.
 
-### Phase 5: Update Documentation
+Element overrides in `allauth/elements/`:
+- `button.html` — primary/secondary/danger/link variants with Tailwind classes
+- `field.html` — label + widget + errors + help text
+- `form.html` — CSRF token + body + actions slots
+- `h1.html`, `h2.html` — styled headings
+- `hr.html` — decorative divider with "or" text
+- `alert.html` — error/success/warning/info variants
+- `panel.html` — card container with title/body/actions
+- `p.html` — styled paragraph
 
-#### Step 5.1: Rewrite SKILL.md
-**Changes**: All Next.js references → React/Vite, update file tree, update step 4
+See template-ui-analysis.md for exact contents.
 
-#### Step 5.2: Update architecture.md
-**Changes**: Update proxy section, add Vite/nginx reasoning
+#### Step 3.4: Create Tailwind input.css
+**Objective**: Set up Tailwind CSS v4 source file
+**Details**: Create `assets/templates/static/css/input.css`:
+```css
+@import "tailwindcss" source("../../");
 
-#### Step 5.3: Rewrite template README.md
-**Changes**: Full update of stack table, project structure, auth flow
+@theme {
+  --color-primary-50: oklch(0.97 0.02 250);
+  --color-primary-100: oklch(0.94 0.04 250);
+  --color-primary-500: oklch(0.55 0.20 250);
+  --color-primary-600: oklch(0.48 0.20 250);
+  --color-primary-700: oklch(0.40 0.18 250);
+  --color-primary-900: oklch(0.25 0.10 250);
+}
+```
 
-#### Step 5.4: Update root README.md
-**Changes**: Replace Next.js references with React/Vite
+### Phase 4: Modify Existing Files
 
-### Phase 6: Clean Up Agent Skills & Memory
+#### Step 4.1: Rewrite settings/base.py
+**Objective**: Update Django settings for allauth, remove DRF/CORS/Clerk
+**Details**: See analysis-django-architect.md section 2 for exact contents.
+Key changes:
+- Remove: rest_framework, corsheaders, Clerk config, REST_FRAMEWORK dict
+- Add: allauth, allauth.account, apps.pages, AccountMiddleware, AUTHENTICATION_BACKENDS
+- Add: TEMPLATES DIRS, STATICFILES_DIRS, ACCOUNT_* settings, LOGIN_REDIRECT_URL
+- Keep: WhiteNoise, dj-database-url, AUTH_USER_MODEL, password validators, logging
 
-#### Step 6.1: Remove clerk-nextjs-patterns
-**Action**: Delete `.agents/skills/clerk-nextjs-patterns/` directory
+#### Step 4.2: Update settings/development.py
+**Objective**: Remove CORS from dev settings
+**Details**: Remove `CORS_ALLOW_ALL_ORIGINS = True`. Keep everything else.
 
-#### Step 6.2: Update skills-lock.json
-**Action**: Remove `clerk-nextjs-patterns` entry
+#### Step 4.3: Rewrite settings/production.py
+**Objective**: Remove CORS, add email config
+**Details**: Remove CORS settings. Add EMAIL_BACKEND SMTP config with decouple env vars. See analysis section 4.
 
-#### Step 6.3: Update MEMORY.md
-**Action**: Replace Next.js stack info with React/Vite
+#### Step 4.4: Rewrite config/urls.py
+**Objective**: New URL scheme with allauth, page views, health check
+**Details**:
+```python
+from django.contrib import admin
+from django.urls import include, path
 
-## Quality Criteria
+from apps.core.views import health_check
+from apps.pages.views import home, dashboard
 
-- No remaining references to "Next.js", "next.config", "@clerk/nextjs", "App Router", "middleware.ts" in the skill
-- All frontend templates are valid React/Vite files
-- Docker configs work with nginx-based frontend
-- Vite dev proxy correctly routes to Django
-- Clerk auth still works end-to-end (same JWT flow, different client SDK)
-- README and SKILL.md accurately describe the new stack
+urlpatterns = [
+    path("admin/", admin.site.urls),
+    path("accounts/", include("allauth.urls")),
+    path("health/", health_check, name="health"),
+    path("dashboard/", dashboard, name="dashboard"),
+    path("", home, name="home"),
+]
+```
+
+#### Step 4.5: Rewrite User model (AbstractBaseUser)
+**Objective**: Email-only user model, no clerk_id, no username
+**Details**: Switch from AbstractUser to AbstractBaseUser + PermissionsMixin. Remove clerk_id field. Add explicit is_active, is_staff, date_joined fields. Set REQUIRED_FIELDS = []. See analysis section 6.
+
+#### Step 4.6: Rewrite UserManager
+**Objective**: Simplify manager, remove Clerk method
+**Details**: Switch from UserManager to BaseUserManager. Remove get_or_create_from_clerk(). Remove username params. Rename to UserManager. See analysis section 6.
+
+#### Step 4.7: Rewrite admin.py
+**Objective**: Custom fieldsets for email-only User model
+**Details**: Custom fieldsets/add_fieldsets without username. Remove clerk_id references. Add readonly_fields for date_joined/last_login. See analysis section 9.
+
+#### Step 4.8: Rewrite core/views.py
+**Objective**: Replace DRF health check with plain Django view
+**Details**:
+```python
+from django.db import connection
+from django.http import JsonResponse
+
+
+def health_check(request):
+    """Health check endpoint for load balancers and monitoring."""
+    health = {"status": "healthy", "checks": {}}
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+        health["checks"]["database"] = "ok"
+    except Exception:
+        health["status"] = "unhealthy"
+        health["checks"]["database"] = "unavailable"
+    status_code = 200 if health["status"] == "healthy" else 503
+    return JsonResponse(health, status=status_code)
+```
+
+#### Step 4.9: Rewrite requirements.txt
+**Objective**: Swap dependencies
+**Details**:
+```
+Django>=5.2,<5.3
+django-allauth>=65.14,<66
+dj-database-url>=2.3,<3
+gunicorn>=23,<24
+whitenoise>=6.8,<7
+psycopg[binary]>=3.2,<4
+python-decouple>=3.8,<4
+```
+
+### Phase 5: Docker & DevOps
+
+#### Step 5.1: Rewrite Dockerfile
+**Objective**: Three-stage build with Tailwind CLI
+**Details**: See container-architecture.md section 1. Three stages:
+1. `debian:bookworm-slim` — download Tailwind binary, build CSS
+2. `python:3.12-slim` — install Python deps
+3. `python:3.12-slim` — runtime with app + CSS + deps
+Health check URL: `/health/` (not `/api/health/`)
+
+#### Step 5.2: Rewrite docker-compose.yml
+**Objective**: Two services (db + web), Tailwind watch in dev
+**Details**: See container-architecture.md section 2. Key: `web` service downloads Tailwind binary, runs `tailwindcss --watch &` in background + `runserver` in foreground. Uses volumes for pip_cache and tailwind_bin.
+
+#### Step 5.3: Rewrite start-local-dev.sh
+**Objective**: Simplified one-command setup
+**Details**: Remove frontend/.env.local handling, Clerk prompts. Add startup URL hints. See container-architecture.md section 5.
+
+#### Step 5.4: Rewrite .env.example
+**Objective**: Remove Clerk/CORS/frontend vars, add email vars
+**Details**: See container-architecture.md section 7.
+
+#### Step 5.5: Rewrite .gitignore
+**Objective**: Remove Node.js, add Tailwind output
+**Details**: Remove Node.js section, frontend/ refs, backend/ prefix. Add `static/css/tailwind.css`. See container-architecture.md section 8.
+
+### Phase 6: Documentation
+
+#### Step 6.1: Rewrite SKILL.md
+**Objective**: Update skill instructions for pure Django architecture
+**Details**: Update description, instructions for scaffolding. Remove all React/Vite/frontend references. Update project structure diagram. Update next steps (no Clerk keys, no frontend/.env.local).
+
+#### Step 6.2: Rewrite README.md (skill)
+**Objective**: Update skill README
+**Details**: Update "What You Get" structure, stack table, setup instructions. Remove Clerk, frontend references.
+
+#### Step 6.3: Rewrite references/architecture.md
+**Objective**: Document new architecture decisions
+**Details**: Replace Clerk/CORS/proxy/React sections with allauth/Tailwind/Django template decisions.
+
+#### Step 6.4: Rewrite templates/README.md (generated project)
+**Objective**: Update generated project README
+**Details**: Single-service architecture, django-allauth setup, no Clerk keys needed.
+
+### Phase 7: Verification
+
+#### Step 7.1: Verify file structure
+**Objective**: Confirm all files exist and old files are removed
+**Details**: Run `find skills/starter-django/assets/templates -type f | sort` and verify against expected structure.
+
+#### Step 7.2: Verify no stale references
+**Objective**: Confirm no React/Clerk/DRF/CORS references remain
+**Details**: Grep for `clerk`, `react`, `vite`, `rest_framework`, `corsheader`, `frontend` in all skill files.
+
+## File Structure (after execution)
+
+```
+skills/starter-django/
+  SKILL.md
+  README.md
+  references/
+    architecture.md
+  assets/
+    templates/
+      manage.py
+      requirements.txt
+      Dockerfile
+      entrypoint.sh
+      gunicorn.conf.py
+      docker-compose.yml
+      .env.example
+      .gitignore
+      start-local-dev.sh
+      README.md
+      config/
+        __init__.py
+        settings/
+          __init__.py
+          base.py
+          development.py
+          production.py
+        urls.py
+        wsgi.py
+        asgi.py
+      apps/
+        __init__.py
+        accounts/
+          __init__.py
+          models.py
+          managers.py
+          admin.py
+          apps.py
+        core/
+          __init__.py
+          views.py
+          apps.py
+        pages/
+          __init__.py
+          views.py
+          apps.py
+      templates/
+        base.html
+        pages/
+          home.html
+          dashboard.html
+        allauth/
+          layouts/
+            base.html
+          elements/
+            button.html
+            field.html
+            form.html
+            h1.html
+            h2.html
+            hr.html
+            alert.html
+            panel.html
+            p.html
+      static/
+        css/
+          input.css
+```

@@ -1,14 +1,14 @@
 # __PROJECT_NAME__
 
-Full-stack application built with Django + React + PostgreSQL + Clerk + Docker.
+Web application built with Django + PostgreSQL + Tailwind CSS + Docker.
 
 ## Stack
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | React (Vite) + TypeScript + Tailwind CSS |
-| Authentication | Clerk |
-| Backend API | Django 5.2 LTS + Django REST Framework |
+| Framework | Django 5.2 LTS |
+| Authentication | django-allauth (email/password) |
+| Styling | Tailwind CSS v4 (standalone CLI) |
 | Database | PostgreSQL 17 |
 | Containers | Docker + Docker Compose |
 
@@ -17,39 +17,8 @@ Full-stack application built with Django + React + PostgreSQL + Clerk + Docker.
 ### Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/) (includes Docker Compose)
-- [Clerk account](https://dashboard.clerk.com/) (free tier available)
 
-### 1. Get Clerk API Keys
-
-1. Go to [dashboard.clerk.com](https://dashboard.clerk.com/)
-2. Create an application (or use an existing one)
-3. Go to **API Keys** and copy:
-   - `Publishable key` (starts with `pk_test_`)
-   - `Secret key` (starts with `sk_test_`)
-4. Go to **API Keys > Advanced** and note your **JWKS URL**:
-   `https://<your-instance>.clerk.accounts.dev/.well-known/jwks.json`
-
-### 2. Configure Environment
-
-```bash
-# Copy environment files (auto-generated on first run, or do it manually)
-cp .env.example .env
-cp frontend/.env.local.example frontend/.env.local
-```
-
-Edit `.env`:
-```bash
-SECRET_KEY=<generate-a-random-key>
-CLERK_SECRET_KEY=sk_test_your_key_here
-CLERK_JWKS_URL=https://your-instance.clerk.accounts.dev/.well-known/jwks.json
-```
-
-Edit `frontend/.env.local`:
-```bash
-VITE_CLERK_PUBLISHABLE_KEY=pk_test_your_key_here
-```
-
-### 3. Start Development
+### 1. Start Development
 
 ```bash
 ./start-local-dev.sh
@@ -57,50 +26,52 @@ VITE_CLERK_PUBLISHABLE_KEY=pk_test_your_key_here
 
 That's it. The script handles everything:
 - Starts PostgreSQL in Docker
+- Installs Python dependencies
+- Downloads Tailwind CSS CLI
 - Runs Django migrations
-- Installs npm dependencies
-- Starts both servers with hot-reload
+- Starts the dev server with CSS watch mode
 
-### Access Points
+### 2. Access Points
 
 | Service | URL |
 |---------|-----|
-| Frontend | [http://localhost:3000](http://localhost:3000) |
-| Backend API | [http://localhost:8000/api/](http://localhost:8000/api/) |
-| Health Check | [http://localhost:8000/api/health/](http://localhost:8000/api/health/) |
+| Home | [http://localhost:8000](http://localhost:8000) |
+| Sign Up | [http://localhost:8000/accounts/signup/](http://localhost:8000/accounts/signup/) |
+| Sign In | [http://localhost:8000/accounts/login/](http://localhost:8000/accounts/login/) |
+| Dashboard | [http://localhost:8000/dashboard/](http://localhost:8000/dashboard/) |
+| Health Check | [http://localhost:8000/health/](http://localhost:8000/health/) |
 | Django Admin | [http://localhost:8000/admin/](http://localhost:8000/admin/) |
+
+### 3. Email Verification
+
+New accounts require email verification. In development, verification emails are printed to the Docker console output. Look for the verification link in the terminal and open it in your browser.
 
 ## Project Structure
 
 ```
 .
-├── backend/                    # Django API
-│   ├── apps/
-│   │   ├── accounts/           # User model + Clerk JWT auth
-│   │   └── core/               # Health check + utilities
-│   ├── config/
-│   │   ├── settings/
-│   │   │   ├── base.py         # Shared settings
-│   │   │   ├── development.py  # Local dev settings
-│   │   │   └── production.py   # Production settings
-│   │   └── urls.py
-│   ├── Dockerfile              # Production image
-│   ├── entrypoint.sh           # Startup script (migrations + gunicorn)
-│   └── requirements.txt
-├── frontend/                   # React (Vite) app
-│   ├── src/
-│   │   ├── App.tsx             # Router + Clerk provider
-│   │   ├── pages/              # Page components
-│   │   ├── layouts/            # Layout components
-│   │   ├── components/         # Shared components
-│   │   └── lib/api.ts          # API client
-│   ├── Dockerfile              # Production image (nginx)
-│   ├── nginx.conf              # Production proxy + static serving
-│   └── vite.config.ts          # Dev proxy config
-├── docker-compose.yml          # Local development
-├── docker-compose.prod.yml     # Production reference
-├── .env.example                # Environment template
-└── start-local-dev.sh          # One-command setup
+├── config/                    # Django configuration
+│   ├── settings/
+│   │   ├── base.py            # Shared settings
+│   │   ├── development.py     # Local dev settings
+│   │   └── production.py      # Production settings
+│   └── urls.py
+├── apps/
+│   ├── accounts/              # Custom User model (email-based)
+│   ├── core/                  # Health check endpoint
+│   └── pages/                 # Page views (home, dashboard)
+├── templates/                 # Django templates
+│   ├── base.html              # Master layout (nav, messages)
+│   ├── pages/                 # Page templates
+│   └── allauth/               # Auth page styling (Tailwind)
+├── static/
+│   └── css/
+│       └── input.css          # Tailwind v4 source
+├── Dockerfile                 # Production image (multi-stage)
+├── docker-compose.yml         # Development environment
+├── entrypoint.sh              # Startup script (migrations + gunicorn)
+├── start-local-dev.sh         # One-command setup
+└── .env.example               # Environment template
 ```
 
 ## Development
@@ -109,61 +80,60 @@ That's it. The script handles everything:
 
 ```bash
 # Django management commands
-docker compose exec backend python manage.py <command>
+docker compose exec web python manage.py <command>
 
 # Create a superuser
-docker compose exec backend python manage.py createsuperuser
+docker compose exec web python manage.py createsuperuser
 
 # Make migrations
-docker compose exec backend python manage.py makemigrations
+docker compose exec web python manage.py makemigrations
 
 # Run migrations
-docker compose exec backend python manage.py migrate
-
-# npm commands
-docker compose exec frontend npm <command>
+docker compose exec web python manage.py migrate
 ```
 
-### API Architecture
+### How It Works
 
-- Vite dev server proxies `/api/*` requests to Django via `vite.config.ts`
-- In production, nginx proxies `/api/*` to Django and serves the static frontend bundle
-- No CORS issues during development
-- Clerk JWT tokens are passed as `Authorization: Bearer <token>` headers
-- Django verifies tokens using Clerk's JWKS endpoint
+- Django renders HTML pages using templates with Tailwind CSS classes
+- Tailwind CLI watches for class changes and rebuilds CSS automatically
+- django-allauth handles authentication (login, signup, logout, password reset)
+- All auth flows use Django sessions — no JWT tokens or external services
+- Code changes trigger automatic reload (Python via runserver, CSS via Tailwind watch)
 
 ### Authentication Flow
 
-1. User signs in via Clerk (frontend)
-2. Frontend gets session JWT from Clerk via `getToken()`
-3. Frontend sends JWT as Bearer token to `/api/*` endpoints
-4. Django's `ClerkJWTAuthentication` class verifies the JWT using JWKS
-5. Request proceeds with authenticated `ClerkUser` object
+1. User visits `/accounts/signup/` and creates an account
+2. Verification email prints to the Docker console (dev) or sends via SMTP (prod)
+3. User clicks verification link to activate account
+4. User logs in at `/accounts/login/`
+5. Django session authenticates subsequent requests
+6. `@login_required` protects views like `/dashboard/`
 
 ## Production
 
-### Build Production Images
+### Build Production Image
 
 ```bash
-docker compose -f docker-compose.prod.yml build
+docker build -t __PROJECT_NAME__ .
 ```
 
-### Deploy
+### Run
 
-The production setup:
-- Django runs behind Gunicorn with worker auto-scaling
-- Frontend is served as static files by nginx, which also proxies `/api/*` to Django
-- Entrypoint script waits for DB and runs migrations with advisory lock
-- Both services include Docker health checks
-- Static files served by WhiteNoise
-
-### Environment Variables (Production)
-
-In addition to development variables, set:
 ```bash
-DJANGO_SETTINGS_MODULE=config.settings.production
-ALLOWED_HOSTS=yourdomain.com
-CORS_ALLOWED_ORIGINS=https://yourdomain.com
+docker run -p 8000:8000 \
+  -e SECRET_KEY=your-secret-key \
+  -e DATABASE_URL=postgres://user:pass@host:5432/dbname \
+  -e DJANGO_SETTINGS_MODULE=config.settings.production \
+  -e ALLOWED_HOSTS=yourdomain.com \
+  -e EMAIL_HOST=smtp.example.com \
+  -e EMAIL_HOST_USER=noreply@example.com \
+  -e EMAIL_HOST_PASSWORD=your-password \
+  __PROJECT_NAME__
 ```
 
-Ensure Clerk keys use `pk_live_` / `sk_live_` prefixes for production.
+The production image:
+- Builds Tailwind CSS with minification (no runtime Tailwind binary)
+- Runs Django behind Gunicorn with worker auto-scaling
+- Serves static files via WhiteNoise with compression and cache headers
+- Waits for DB and runs migrations with advisory lock on startup
+- Includes Docker health check on `/health/`

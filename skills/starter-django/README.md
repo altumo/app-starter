@@ -1,34 +1,29 @@
 # starter-django
 
-Scaffolds a production-ready full-stack project with **Django + React + Vite + PostgreSQL + Clerk + Docker**.
+Scaffolds a production-ready Django project with **Django + PostgreSQL + Tailwind CSS + Docker**.
 
 ## What You Get
 
 ```
 myapp/
-├── backend/                   # Django 5.2 + DRF + Gunicorn
-│   ├── apps/
-│   │   ├── accounts/          # Custom User model, Clerk JWT auth
-│   │   └── core/              # Health check endpoint
-│   ├── config/
-│   │   └── settings/          # Split settings (base/dev/prod)
-│   ├── Dockerfile             # Multi-stage production build
-│   └── entrypoint.sh          # DB wait + advisory lock migrations
-├── frontend/                  # React 19 + Vite + TypeScript
-│   ├── src/
-│   │   ├── pages/             # Home, SignIn, SignUp, Dashboard
-│   │   ├── components/        # ProtectedRoute
-│   │   ├── layouts/           # DashboardLayout with UserButton
-│   │   └── lib/               # API fetch helpers (auth + unauth)
-│   ├── Dockerfile             # Multi-stage nginx build
-│   └── nginx.conf             # Reverse proxy for /api + SPA fallback
-├── docker-compose.yml         # Dev: PostgreSQL + Django + Vite
-├── docker-compose.prod.yml    # Prod: all services with restart policies
+├── config/                    # Split settings (base/dev/prod)
+│   └── settings/
+├── apps/
+│   ├── accounts/              # Custom User model (email-based)
+│   ├── core/                  # Health check endpoint
+│   └── pages/                 # Home + dashboard views
+├── templates/                 # Django templates + allauth overrides
+│   ├── base.html              # Master layout with nav + messages
+│   ├── pages/                 # Home, dashboard
+│   └── allauth/               # Styled auth pages (Tailwind)
+├── static/css/input.css       # Tailwind v4 source
+├── Dockerfile                 # Multi-stage (Tailwind CLI + Python)
+├── docker-compose.yml         # Dev: PostgreSQL + Django + Tailwind watch
 ├── start-local-dev.sh         # One-command setup
 └── .env.example               # All configuration documented
 ```
 
-~45 files. Zero manual setup beyond Clerk keys.
+~35 files. Zero manual setup. No Node.js required.
 
 ## Install
 
@@ -49,58 +44,46 @@ bootstrap a new project called myapp
 ## Prerequisites
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
-- [Clerk account](https://dashboard.clerk.com) (free tier)
 
 ## Setup
 
-### 1. Get Clerk keys
-
-From [dashboard.clerk.com](https://dashboard.clerk.com):
-- **Publishable key** (`pk_test_...`)
-- **Secret key** (`sk_test_...`)
-- **JWKS URL**: `https://<your-instance>.clerk.accounts.dev/.well-known/jwks.json`
-
-### 2. Configure environment
-
-Edit `.env`:
-```bash
-CLERK_JWKS_URL=https://your-instance.clerk.accounts.dev/.well-known/jwks.json
-```
-
-Edit `frontend/.env.local`:
-```bash
-VITE_CLERK_PUBLISHABLE_KEY=pk_test_your_key
-```
-
-### 3. Start
+### 1. Start
 
 ```bash
 ./start-local-dev.sh
 ```
 
+That's it. The script handles everything: starts PostgreSQL, installs dependencies, downloads Tailwind CLI, runs migrations, and starts the dev server with CSS watch.
+
+### 2. Access
+
 | Service | URL |
 |---------|-----|
-| Frontend | http://localhost:3000 |
-| Backend API | http://localhost:8000/api/ |
-| Health check | http://localhost:8000/api/health/ |
+| Home | http://localhost:8000 |
+| Sign Up | http://localhost:8000/accounts/signup/ |
+| Sign In | http://localhost:8000/accounts/login/ |
+| Dashboard | http://localhost:8000/dashboard/ |
+| Health Check | http://localhost:8000/health/ |
 | Django Admin | http://localhost:8000/admin/ |
+
+### 3. Email Verification
+
+New accounts require email verification. In development, verification emails are printed to the Docker console output. Copy the verification link from the console to activate accounts.
 
 ## Common Tasks
 
 ```bash
 # Django management commands
-docker compose exec backend python manage.py createsuperuser
-docker compose exec backend python manage.py makemigrations
-docker compose exec backend python manage.py migrate
+docker compose exec web python manage.py createsuperuser
+docker compose exec web python manage.py makemigrations
+docker compose exec web python manage.py migrate
 
-# Install packages
-docker compose exec frontend npm install <package>
-# Or add to backend/requirements.txt and rebuild:
-docker compose up --build backend
+# Add Python packages
+# Add to requirements.txt, then:
+docker compose up --build web
 
 # Logs
-docker compose logs -f backend
-docker compose logs -f frontend
+docker compose logs -f web
 
 # Stop / reset
 docker compose down        # stop
@@ -109,12 +92,13 @@ docker compose down -v     # stop + wipe database
 
 ## Architecture
 
-- **Auth**: PyJWT + JWKS for Clerk JWT verification (zero dependency on Clerk's Python SDK)
-- **Settings**: Split into `base.py`, `development.py`, `production.py` (no `if DEBUG` conditionals)
-- **Dev proxy**: Vite proxies `/api/*` to Django (no CORS in development)
-- **Prod proxy**: nginx serves the React build and proxies `/api/*` to Gunicorn
+- **Auth**: django-allauth with email/password (no username, social login ready)
+- **User Model**: Custom `AbstractBaseUser` with email as identifier (set from day one)
+- **Settings**: Split into `base.py`, `development.py`, `production.py`
+- **Styling**: Tailwind CSS v4 standalone CLI (no Node.js anywhere)
+- **Static Files**: WhiteNoise serves compressed files with cache headers
 - **Migrations**: `pg_advisory_lock` prevents race conditions with multiple replicas
-- **User model**: Custom `User` model from day one (Django best practice)
+- **Container**: Single service (Django + Gunicorn) + PostgreSQL
 
 See [references/architecture.md](references/architecture.md) for detailed rationale.
 
@@ -123,6 +107,6 @@ See [references/architecture.md](references/architecture.md) for detailed ration
 | Problem | Fix |
 |---------|-----|
 | "Database not available" | Docker Desktop might still be starting. Wait and retry. |
-| Clerk sign-in error | Check `VITE_CLERK_PUBLISHABLE_KEY` in `frontend/.env.local`. Restart: `docker compose restart frontend` |
-| 401 on authenticated requests | Check `CLERK_JWKS_URL` in `.env`. Restart: `docker compose restart backend` |
-| Port conflict | Change ports in `.env`: `BACKEND_PORT=8001`, `FRONTEND_PORT=3001`, `DB_PORT=5433` |
+| Email verification not arriving | Check Docker console output — emails print to the terminal in dev. |
+| Port conflict | Change port in `.env`: `WEB_PORT=8001` or `DB_PORT=5433` |
+| CSS not updating | Tailwind watcher may have stopped. Restart: `docker compose restart web` |

@@ -1,92 +1,86 @@
-# Goal Analysis: Replace Next.js with React (Vite)
+# Goal Analysis: Refactor starter-django to Pure Django
 
-## Objective
+## Context
 
-Remove all Next.js dependencies from the `starter-django` skill and replace with a plain React SPA using Vite as the build tool. Django remains the only backend server. The frontend becomes a pure client-side React application.
+The `starter-django` skill currently scaffolds a **two-container** architecture:
+- **Backend**: Django 5.2 + DRF + Gunicorn (Python container)
+- **Frontend**: React 19 + Vite + TypeScript (Node.js container, nginx in prod)
+- **Auth**: Clerk (React components frontend, PyJWT JWKS verification backend)
+- **Proxy**: Vite dev proxy in dev, nginx reverse proxy in prod
 
-## Key Architectural Shifts
+The user wants to refactor this into a **single-container, all-Django** architecture using Django best patterns.
 
-### 1. API Proxy Pattern
-- **Current**: Next.js `rewrites` in `next.config.ts` proxy `/api/*` to Django — frontend has a server
-- **New**: Vite dev server proxy in `vite.config.ts` during development; nginx reverse proxy in production Docker — frontend has NO server, only static files
+## Goals
 
-### 2. Authentication Integration
-- **Current**: `@clerk/nextjs` — provides middleware, server components, ClerkProvider
-- **New**: `@clerk/clerk-react` — client-only provider, hooks, components. No middleware (route protection via React Router)
+### Goal 1: Eliminate the Separate Frontend
+- Remove the entire `frontend/` directory (React, Vite, Node.js, nginx)
+- Replace with Django templates for all HTML rendering
+- Use Tailwind CSS v4 for styling (via standalone CLI — no Node.js runtime dependency)
+- Keep the same pages: Home, Sign In, Sign Up, Dashboard
 
-### 3. Routing
-- **Current**: Next.js App Router (file-based), route groups `(auth)/(dashboard)`, catch-all `[[...sign-in]]`, `Link` from `next/link`
-- **New**: React Router v7, explicit route config, `<Link>` from `react-router`, protected route wrapper
+### Goal 2: Replace Clerk with Django-Native Auth
+- Remove Clerk dependency (both backend PyJWT/JWKS and frontend @clerk/clerk-react)
+- Replace with `django-allauth` — the standard Django auth package
+- Support email/password auth out of the box, social login ready
+- Use Django's built-in session auth (no JWT verification needed)
+- Keep the custom User model (email as primary identifier)
 
-### 4. Production Serving
-- **Current**: Node.js standalone server (`node server.js`), 3-stage Docker build
-- **New**: nginx serving static `dist/` files + proxying `/api` to backend, 2-stage Docker build (build + nginx)
+### Goal 3: Single Container Architecture
+- One Docker service: Django + Gunicorn (plus PostgreSQL as a separate DB service)
+- Remove nginx entirely — WhiteNoise serves static files
+- Remove CORS middleware — no cross-origin requests when everything is one app
+- Simplify docker-compose to just `db` + `web` services
 
-### 5. Environment Variables
-- **Current**: `NEXT_PUBLIC_` prefix for client-exposed vars
-- **New**: `VITE_` prefix for client-exposed vars
+### Goal 4: Flatten Project Structure
+- Remove the `backend/` subdirectory — Django project lives at the repo root
+- Standard Django project layout: `manage.py` at root, `config/` for settings, `apps/` for Django apps
+- Cleaner, more conventional Django structure
 
-### 6. Clerk Middleware → Client-Side Protection
-- **Current**: `clerkMiddleware` in `src/middleware.ts` protects routes server-side
-- **New**: `ProtectedRoute` component wrapping React Router routes client-side
+### Goal 5: Keep What Works
+- Split settings (base/dev/prod)
+- Custom User model from day one
+- pg_advisory_lock for safe migrations
+- Health check endpoint
+- Multi-stage Docker build
+- Gunicorn with sensible production config
+- WhiteNoise for static files
+- python-decouple for env config
 
-## Files Inventory
+### Goal 6: Update All Documentation
+- Rewrite SKILL.md for the new architecture
+- Rewrite README.md (skill README)
+- Rewrite templates/README.md (generated project README)
+- Rewrite references/architecture.md
+- Update .env.example (remove Clerk, frontend vars)
+- Update .gitignore (remove Node.js/frontend sections)
 
-### Frontend Templates — DELETE
-- `frontend/next.config.ts`
-- `frontend/src/middleware.ts`
-- `frontend/src/app/` (entire directory — replaced by pages/layouts/components)
+## What Gets Removed
+- `assets/templates/frontend/` — entire directory
+- `frontend/.env.local.example`
+- `nginx.conf`
+- `frontend/Dockerfile`
+- `docker-compose.prod.yml` — merge into single docker-compose with profiles or simplify
+- `django-cors-headers` dependency
+- `PyJWT[crypto]` dependency
+- `djangorestframework` dependency (replaced by standard Django views)
+- Clerk configuration (CLERK_JWKS_URL, CLERK_AUTHORIZED_PARTIES, etc.)
+- `apps/accounts/authentication.py` (ClerkJWTAuthentication)
+- `apps/accounts/serializers.py` (DRF serializer)
 
-### Frontend Templates — CREATE NEW
-- `frontend/vite.config.ts` — Vite config with dev proxy
-- `frontend/index.html` — Vite entry point (required at root)
-- `frontend/src/main.tsx` — React entry point
-- `frontend/src/App.tsx` — Root component with ClerkProvider + Router
-- `frontend/src/index.css` — moved from `src/app/globals.css`
-- `frontend/src/pages/Home.tsx`
-- `frontend/src/pages/SignIn.tsx`
-- `frontend/src/pages/SignUp.tsx`
-- `frontend/src/pages/Dashboard.tsx`
-- `frontend/src/layouts/DashboardLayout.tsx`
-- `frontend/src/components/ProtectedRoute.tsx`
-- `frontend/nginx.conf` — production nginx config for Docker
+## What Gets Added
+- `django-allauth` for authentication
+- Django templates (base.html, home.html, dashboard.html, etc.)
+- Tailwind CSS v4 via standalone CLI (build step in Docker, watch in dev)
+- `apps/pages/` — new app for template views (home, dashboard)
+- Static files structure (`static/css/`, `static/js/`)
+- Template inheritance structure (`templates/base.html`, etc.)
 
-### Frontend Templates — REWRITE
-- `frontend/package.json` — new deps
-- `frontend/tsconfig.json` — Vite-compatible
-- `frontend/Dockerfile` — nginx-based
-- `frontend/.gitignore` — Vite entries
-- `frontend/.env.local.example` — VITE_ prefix
-- `frontend/src/lib/api.ts` — update comments
-- `frontend/postcss.config.mjs` — keep as-is (Tailwind v4)
-
-### Skill Docs — UPDATE
-- `SKILL.md` — all Next.js references → React/Vite
-- `references/architecture.md` — update proxy and routing sections
-- `assets/templates/README.md` — full rewrite of frontend references
-
-### Root Config Templates — UPDATE
-- `docker-compose.yml` — frontend service changes
-- `docker-compose.prod.yml` — frontend service changes
-- `.env.example` — minor updates
-- `.gitignore` — update Node.js section
-- `start-local-dev.sh` — update references
-
-### Root Project Files — UPDATE
-- `README.md` — replace Next.js references
-- `MEMORY.md` — update stack info
-
-### Agent Skills — REMOVE
-- `.agents/skills/clerk-nextjs-patterns/` — Next.js-specific, no longer relevant
-- `skills-lock.json` — remove `clerk-nextjs-patterns` entry
-
-### Backend — NO CHANGES
-- CORS already configured for both dev and prod
-- Clerk JWT verification is framework-agnostic
-- No Next.js references in backend code
-
-## Non-Goals
-- Changing the Django backend architecture
-- Changing the Clerk JWT verification approach
-- Changing the database or Docker base images
-- Adding new features beyond what currently exists
+## Key Decisions to Make
+1. **Tailwind CSS integration**: Standalone CLI (no Node.js) vs django-tailwind (requires Node.js)
+   - Decision: Standalone CLI to keep the stack truly Python-only
+2. **Keep DRF or not**: Pure Django views vs keeping DRF for potential API
+   - Decision: Remove DRF. Use Django views + Django forms. Users can add DRF later if needed.
+3. **Template styling approach**: Tailwind utility classes in templates
+   - Decision: Use Tailwind v4 with `@import "tailwindcss"` in input.css
+4. **Auth flow**: django-allauth handles login/signup/logout with its own templates
+   - Decision: Override allauth templates with custom styled versions

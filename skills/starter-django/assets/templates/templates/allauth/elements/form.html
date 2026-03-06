@@ -1,0 +1,10 @@
+{% load allauth %}
+<form {{ attrs }}>
+  {% csrf_token %}
+  {% render_slot slots.body %}
+  {% if slots.actions %}
+  <div class="mt-6 flex flex-col gap-3">
+    {% render_slot slots.actions %}
+  </div>
+  {% endif %}
+</form>

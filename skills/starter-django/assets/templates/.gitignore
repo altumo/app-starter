@@ -21,18 +21,13 @@ env/
 *.log
 db.sqlite3
 db.sqlite3-journal
-backend/staticfiles/
-backend/media/
+staticfiles/
+media/
 
 # =============================================================================
-# Node.js
+# Tailwind CSS (generated output - rebuilt from input.css)
 # =============================================================================
-node_modules/
-frontend/dist/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
+static/css/tailwind.css
 
 # =============================================================================
 # Environment
@@ -40,7 +35,6 @@ yarn-error.log*
 .env
 .env.local
 .env.*.local
-frontend/.env.local
 
 # =============================================================================
 # IDE

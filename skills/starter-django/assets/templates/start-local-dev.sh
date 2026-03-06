@@ -33,23 +33,16 @@ if [ ! -f .env ]; then
 
     echo "    Generated random SECRET_KEY"
     echo ""
-    echo "    IMPORTANT: Update .env with your Clerk API keys!"
-    echo "    Get them from: https://dashboard.clerk.com > API Keys"
-    echo ""
-fi
-
-# Create frontend/.env.local from example if it doesn't exist
-if [ ! -f frontend/.env.local ]; then
-    echo "==> Creating frontend/.env.local from example..."
-    cp frontend/.env.local.example frontend/.env.local
-    echo ""
-    echo "    IMPORTANT: Update frontend/.env.local with your Clerk keys!"
-    echo ""
 fi
 
 echo "==> Starting services with Docker Compose..."
 echo ""
-echo "    This may take a few minutes on first run (building images, installing deps)."
+echo "    This may take a few minutes on first run (installing deps, downloading Tailwind)."
+echo "    Subsequent starts will be faster (dependencies are cached)."
+echo ""
+echo "    Once running:"
+echo "      App:      http://localhost:${WEB_PORT:-8000}"
+echo "      Database: localhost:${DB_PORT:-5432}"
 echo ""
 
 docker compose up --build

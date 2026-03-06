@@ -1,0 +1,70 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}__PROJECT_NAME__{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="h-full bg-gray-50 text-gray-900 antialiased">
+
+  <nav class="bg-white border-b border-gray-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center gap-6">
+          <a href="{% url 'home' %}" class="text-xl font-bold text-gray-900">
+            __PROJECT_NAME__
+          </a>
+          {% if user.is_authenticated %}
+          <a href="{% url 'dashboard' %}" class="text-sm text-gray-600 hover:text-gray-900 transition">
+            Dashboard
+          </a>
+          {% endif %}
+        </div>
+        <div class="flex items-center gap-4">
+          {% if user.is_authenticated %}
+          <span class="text-sm text-gray-600">{{ user.email }}</span>
+          <form method="post" action="{% url 'account_logout' %}">
+            {% csrf_token %}
+            <button type="submit"
+                    class="text-sm text-gray-600 hover:text-gray-900 transition">
+              Sign Out
+            </button>
+          </form>
+          {% else %}
+          <a href="{% url 'account_login' %}"
+             class="text-sm text-gray-600 hover:text-gray-900 transition">
+            Sign In
+          </a>
+          <a href="{% url 'account_signup' %}"
+             class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">
+            Sign Up
+          </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  {% if messages %}
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+    {% for message in messages %}
+    <div class="rounded-lg px-4 py-3 mb-2 text-sm
+                {% if message.tags == 'success' %}bg-green-50 text-green-800 border border-green-200
+                {% elif message.tags == 'error' %}bg-red-50 text-red-800 border border-red-200
+                {% elif message.tags == 'warning' %}bg-yellow-50 text-yellow-800 border border-yellow-200
+                {% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}"
+         role="alert">
+      {{ message }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% block content %}{% endblock %}
+
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -6,14 +6,13 @@ Production-ready project starters for Claude Code. Each starter is a [skill](htt
 
 | Starter | Stack | What You Get |
 |---------|-------|-------------|
-| [**starter-django**](skills/starter-django/) | Django + React + Vite + PostgreSQL + Clerk | Python backend, React SPA frontend, two containers |
+| [**starter-django**](skills/starter-django/) | Django + PostgreSQL + Tailwind CSS + Docker | Pure Django with allauth, single container |
 | [**starter-nextjs**](skills/starter-nextjs/) | Next.js + Drizzle ORM + PostgreSQL + Clerk | Single Next.js app with API routes, one container |
 
 Both starters share the same foundation:
-- **Auth** via [Clerk](https://clerk.com) (sign-in, sign-up, user management)
 - **PostgreSQL 17** with migration safety (`pg_advisory_lock`)
 - **Docker Compose** for one-command local development
-- **Tailwind CSS v4** with TypeScript
+- **Tailwind CSS v4**
 - **Production Dockerfiles** (multi-stage, optimized)
 - **Health check endpoints** with database connectivity verification
 
@@ -62,32 +61,26 @@ Tell Claude:
 bootstrap a new project called myapp
 ```
 
-### 3. Get your Clerk keys
-
-1. Go to [dashboard.clerk.com](https://dashboard.clerk.com) and create an app
-2. Copy your **Publishable Key** and **Secret Key**
-3. Paste them into the generated `.env` file
-
-### 4. Start development
+### 3. Start development
 
 ```bash
 ./start-local-dev.sh
 ```
 
-Your app is running. Open http://localhost:3000.
+Your app is running. Open http://localhost:8000 (Django) or http://localhost:3000 (Next.js).
 
 ## Choosing a Starter
 
 | | starter-django | starter-nextjs |
 |---|---|---|
-| **Best for** | Teams that want a Python backend with a separate React frontend | Teams that want a single TypeScript codebase |
-| **Backend** | Django 5.2 + DRF + Gunicorn | Next.js 16 API Routes |
-| **Frontend** | React 19 (Vite SPA) | Next.js 16 App Router (SSR) |
+| **Best for** | Teams that want a Python backend with Django best practices | Teams that want a single TypeScript codebase |
+| **Backend** | Django 5.2 + Gunicorn | Next.js 16 API Routes |
+| **Frontend** | Django templates + Tailwind CSS | Next.js 16 App Router (SSR) |
 | **ORM** | Django ORM | Drizzle ORM |
-| **Auth integration** | PyJWT + JWKS (manual JWT verification) | @clerk/nextjs v7 (native middleware) |
-| **Containers** | 3 services (PostgreSQL + Django + Vite) | 2 services (PostgreSQL + Next.js) |
-| **Production proxy** | nginx (serves static build + proxies API) | Next.js standalone (serves everything) |
-| **Languages** | Python + TypeScript | TypeScript only |
+| **Auth** | django-allauth (email/password, session-based) | @clerk/nextjs v7 (native middleware) |
+| **Containers** | 2 services (PostgreSQL + Django) | 2 services (PostgreSQL + Next.js) |
+| **Static files** | WhiteNoise (no nginx) | Next.js standalone (serves everything) |
+| **Languages** | Python only (no Node.js) | TypeScript only |
 
 ## Also Included
 
